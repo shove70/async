@@ -1,0 +1,11 @@
+{
+    "authors": ["Shove"],
+	"name" : "async",
+	"description" : "A cross-platform event loop library of asynchroneous objects.",
+	"license": "MIT License",
+	"copyright": "Copyright © 2018, Shove",
+	"targetType": "library",
+	"targetName": "async",
+	"dependencies" : {
+	}
+}
