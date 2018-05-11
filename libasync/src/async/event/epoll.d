@@ -11,6 +11,7 @@ import core.sys.posix.netinet.tcp;
 import core.sys.posix.netinet.in_;
 import core.sys.posix.unistd;
 import core.sys.posix.time;
+import core.sync.mutex;
 import std.socket;
 
 import async.event.selector;
@@ -24,16 +25,20 @@ class Epoll : Selector
 {
     this(TcpListener listener, OnConnected onConnected, OnDisConnected onDisConnected, OnReceive onReceive, OnSocketError onSocketError)
     {
-        this.onConnected    = onConnected;
+        this._onConnected   = onConnected;
         this.onDisConnected = onDisConnected;
         this.onReceive      = onReceive;
         this.onSocketError  = onSocketError;
 
-        _epollfd       = epoll_create1(0);
+        _lock          = new Mutex;
+
+        _epollFd       = epoll_create1(0);
         _listener      = listener;
-        _event.events  = EPOLLIN | EPOLLHUP | EPOLLERR | EPOLLET;
-        _event.data.fd = listener.fd;
-        register(_listener.fd, _event);
+
+        epoll_event ev;
+        ev.events  = EPOLLIN | EPOLLHUP | EPOLLERR;
+        ev.data.fd = listener.fd;
+        register(_listener.fd, ev);
     }
 
     ~this()
@@ -41,9 +46,9 @@ class Epoll : Selector
         dispose();
     }
 
-    bool register(int fd, ref epoll_event ev)
+    private bool register(int fd, ref epoll_event ev)
     {
-        if (epoll_ctl(_epollfd, EPOLL_CTL_ADD, fd, &ev) != 0)
+        if (epoll_ctl(_epollFd, EPOLL_CTL_ADD, fd, &ev) != 0)
         {
             if (errno != EEXIST)
             {
@@ -54,14 +59,14 @@ class Epoll : Selector
         return true;
     }
 
-    int reregister(int fd, ref epoll_event ev)
+    private int reregister(int fd, ref epoll_event ev)
     {
-       return (epoll_ctl(_epollfd, EPOLL_CTL_MOD, fd, &ev) == 0);
+       return (epoll_ctl(_epollFd, EPOLL_CTL_MOD, fd, &ev) == 0);
     }
 
-    int deregister(int fd)
+    private int deregister(int fd)
     {
-        return (epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, null) == 0);
+        return (epoll_ctl(_epollFd, EPOLL_CTL_DEL, fd, null) == 0);
     }
 
     override void startLoop()
@@ -74,10 +79,10 @@ class Epoll : Selector
         }
     }
 
-    override void handleEvent()
+    private void handleEvent()
     {
         epoll_event[64] events;
-        const int len = epoll_wait(_epollfd, events.ptr, events.length, 10);
+        const int len = epoll_wait(_epollFd, events.ptr, events.length, 10);
 
         foreach (i; 0 .. len)
         {
@@ -106,8 +111,8 @@ class Epoll : Selector
                 ev.data.fd = client.fd;
                 register(client.fd, ev);
 
-                _clients[client.fd] = client;
-                onConnected(client);
+                synchronized (_lock) _clients[client.fd] = client;
+                _onConnected(client);
             }
             else if (events[i].events & EPOLLIN)
             {
@@ -137,17 +142,16 @@ class Epoll : Selector
         deregister(_listener.fd);
         _listener.close();
 
-        core.sys.posix.unistd.close(_epollfd);
+        core.sys.posix.unistd.close(_epollFd);
     }
 
     override void removeClient(int fd)
     {
         deregister(fd);
-        _clients.remove(fd);
+        synchronized (_lock) _clients.remove(fd);
     }
 
 private:
 
-    int         _epollfd;
-    epoll_event _event;
+    int _epollFd;
 }

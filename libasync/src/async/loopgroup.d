@@ -63,11 +63,6 @@ class LoopGroup
         _started = false;
     }
 
-    @property size_t length()
-    {
-        return _loops.length;
-    }
-
 private:
 
     Loop         _mainLoop;

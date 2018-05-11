@@ -31,23 +31,25 @@ void onConnected(TcpClient client)
 
 void onDisConnected(string remoteAddress)
 {
-    writeln("Client socket close: ", remoteAddress);
+    writefln("\033[7mClient socket close: %s\033[0m", remoteAddress);
 }
 
 void onReceive(TcpClient client, in ubyte[] data)
 {
     writefln("Receive from %s: %d", client.remoteAddress().toString(), data.length);
 
-    long sent = client.write(data); // echo
-
-    if (sent != data.length)
-    {
-        writefln("Send to %s Error. sent: %d", client.remoteAddress().toString(), sent);
-    }
-    else
-    {
-        writefln("Sent to %s: %d", client.remoteAddress().toString(), sent);
-    }
+    new Thread({
+        long sent = client.write(data); // echo
+    
+        if (sent != data.length)
+        {
+            writefln("Send to %s Error. sent: %d", client.remoteAddress().toString(), sent);
+        }
+        else
+        {
+            writefln("Sent to %s: %d", client.remoteAddress().toString(), sent);
+        }
+    }).start();
 }
 
 void onSocketError(string remoteAddress, string msg)

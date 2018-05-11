@@ -5,6 +5,7 @@ debug import std.stdio;
 version (Windows):
 
 import core.sys.windows.windows;
+import core.sync.mutex;
 import std.socket;
 
 import async.event.selector;
@@ -18,10 +19,12 @@ class Iocp : Selector
 {
     this(TcpListener listener, OnConnected onConnected, OnDisConnected onDisConnected, OnReceive onReceive, OnSocketError onSocketError)
     {
-        this.onConnected    = onConnected;
+        this._onConnected   = onConnected;
         this.onDisConnected = onDisConnected;
         this.onReceive      = onReceive;
         this.onSocketError  = onSocketError;
+
+        _lock          = new Mutex;
     }
 
     ~this()
@@ -29,17 +32,17 @@ class Iocp : Selector
         dispose();
     }
 
-    bool register(int fd)
+    private bool register(int fd)
     {
         return true;
     }
 
-    bool reRegister(int fd)
+    private bool reRegister(int fd)
     {
        return true;
     }
 
-    bool deRegister(int fd)
+    private bool deRegister(int fd)
     {
         return true;
     }
@@ -54,7 +57,7 @@ class Iocp : Selector
         }
     }
 
-    override void handleEvent()
+    private void handleEvent()
     {
 
     }

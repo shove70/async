@@ -4,8 +4,10 @@ debug import std.stdio;
 
 import core.thread;
 import core.stdc.errno;
+import core.stdc.string;
 import std.socket;
 import std.conv;
+import std.string;
 
 import async.event.selector;
 import async.net.tcpstream;
@@ -68,7 +70,7 @@ class TcpClient : TcpStream
         	        else
         	        {
                         close();
-                        _selector.onSocketError(_remoteAddress, "errno: " ~ errno.to!string);
+                        _selector.onSocketError(_remoteAddress, fromStringz(strerror(errno)).idup);
         	            break;
         	        }
                 }
@@ -90,11 +92,16 @@ class TcpClient : TcpStream
 
     long write(in ubyte[] data)
     {
-        long off = 0, sent = 0;
+        if (!_socket.isAlive())
+        {
+            return 0;
+        }
+
+        long sent = 0;
 
         while (sent < data.length)
         {
-            long len = _socket.send(data[off .. $]);
+            long len = _socket.send(data[sent .. $]);
 
             if (len > 0)
             {
@@ -113,7 +120,7 @@ class TcpClient : TcpStream
                 {
                     continue;
                 }
-                else if (errno == EAGAIN && errno == EWOULDBLOCK)
+                else if (errno == EAGAIN || errno == EWOULDBLOCK)
                 {
                     Thread.sleep(50.msecs);
                     continue;
@@ -121,7 +128,7 @@ class TcpClient : TcpStream
                 else
                 {
                     close();
-                    _selector.onSocketError(_remoteAddress, "errno: " ~ errno.to!string);
+                    _selector.onSocketError(_remoteAddress, fromStringz(strerror(errno)).idup);
                     break;
                 }
             }

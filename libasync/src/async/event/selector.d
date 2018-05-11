@@ -1,5 +1,7 @@
 module async.event.selector;
 
+import core.sync.mutex;
+
 import async.net.tcplistener;
 import async.net.tcpclient;
 
@@ -11,8 +13,6 @@ alias OnSocketError  = void function(string, string);
 abstract class Selector
 {
     void startLoop();
-
-    void handleEvent();
 
     void stop();
 
@@ -27,7 +27,9 @@ protected:
 
     TcpClient[int] _clients;
 
-    OnConnected    onConnected;
+    OnConnected    _onConnected;
+
+    Mutex          _lock;
 
 public:
 

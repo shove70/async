@@ -22,17 +22,29 @@ void onConnected(TcpClient client)
 
 void onDisConnected(string remoteAddress)
 {
-    writeln("Client socket close: ", remoteAddress);
+    writefln("\033[7mClient socket close: %s\033[0m", remoteAddress);
 }
 
 void onReceive(TcpClient client, in ubyte[] data)
 {
-    writefln("Receive from %s: %d", client.remoteAddress().toString(), data.length);
+//    writefln("Receive from %s: %d", client.remoteAddress().toString(), data.length);
+
+    queue[client.fd] ~= data;
+
+    size_t len = findCompleteMessage(queue[client.fd]);
+
+    if (len == 0)
+    {
+        return;
+    }
+
+    ubyte[] buffer   = queue[client.fd][0 .. len];
+    queue[client.fd] = queue[client.fd][len .. $];
 
     new Thread({
-        long sent = client.write(data); // echo
+        long sent = client.write(buffer); // echo
     
-        if (sent != data.length)
+        if (sent != buffer.length)
         {
             writefln("Send to %s Error. sent: %d", client.remoteAddress().toString(), sent);
         }
@@ -46,4 +58,17 @@ void onReceive(TcpClient client, in ubyte[] data)
 void onSocketError(string remoteAddress, string msg)
 {
     writeln("Client socket error: ", remoteAddress, " ", msg);
+}
+
+__gshared int size = 10000000;
+__gshared ubyte[][int] queue;
+
+private size_t findCompleteMessage(in ubyte[] data)
+{
+    if (data.length < size)
+    {
+        return 0;
+    }
+
+    return size;
 }
