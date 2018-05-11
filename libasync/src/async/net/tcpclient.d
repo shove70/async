@@ -47,7 +47,7 @@ class TcpClient : TcpStream
 
                 if (len > 0)
                 {
-                    data ~= buffer[0 .. len];
+                    data ~= buffer[0 .. cast(uint)len];
 
                     continue;
                 }
@@ -101,7 +101,7 @@ class TcpClient : TcpStream
 
         while (sent < data.length)
         {
-            long len = _socket.send(data[sent .. $]);
+            long len = _socket.send(data[cast(uint)sent .. $]);
 
             if (len > 0)
             {

@@ -38,7 +38,7 @@ else version (DragonFlyBSD)
 {
     import async.event.kqueue;
 }
-else version (windows)
+else version (Windows)
 {
     import async.event.iocp;
 }

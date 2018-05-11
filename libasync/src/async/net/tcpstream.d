@@ -27,7 +27,7 @@ abstract class TcpStream
             _socket.setOption(SocketOptionLevel.SOCKET, cast(SocketOption)SO_REUSEPORT, _reusePort);
         }
 
-        version (windows)
+        version (Windows)
         {
             if (!_reusePort)
             {

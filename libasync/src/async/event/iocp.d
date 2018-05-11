@@ -15,6 +15,23 @@ import async.net.tcpclient;
 
 alias LoopSelector = Iocp;
 
+enum IocpOperation
+{
+    accept,
+    connect,
+    read,
+    write,
+    event,
+    close
+}
+
+struct IocpContext
+{
+    OVERLAPPED    overlapped;
+    IocpOperation operation;
+    int           fd;
+}
+
 class Iocp : Selector
 {
     this(TcpListener listener, OnConnected onConnected, OnDisConnected onDisConnected, OnReceive onReceive, OnSocketError onSocketError)
@@ -25,6 +42,8 @@ class Iocp : Selector
         this.onSocketError  = onSocketError;
 
         _lock          = new Mutex;
+        _handle        = CreateIoCompletionPort(INVALID_HANDLE_VALUE, null, 0, 0);
+        _listener      = listener;
     }
 
     ~this()
@@ -34,15 +53,16 @@ class Iocp : Selector
 
     private bool register(int fd)
     {
+        CreateIoCompletionPort(cast(HANDLE)fd, _handle, 0, 0);
         return true;
     }
 
-    private bool reRegister(int fd)
+    private bool reregister(int fd)
     {
        return true;
     }
 
-    private bool deRegister(int fd)
+    private bool deregister(int fd)
     {
         return true;
     }
@@ -59,7 +79,59 @@ class Iocp : Selector
 
     private void handleEvent()
     {
+        auto timeout  = 0;
+        OVERLAPPED*   overlapped;
+        ULONG_PTR key = 0;
+        DWORD bytes   = 0;
 
+        const int ret = GetQueuedCompletionStatus(_handle, &bytes, &key, &overlapped, timeout);
+
+        if (ret == 0)
+        {
+            const auto error = GetLastError();
+            if (error == WAIT_TIMEOUT) // || error == ERROR_OPERATION_ABORTED
+            {
+                return;
+            }
+        }
+
+        if (overlapped is null)
+        {
+            debug writeln("ev is null.");
+
+            return;
+        }
+
+        auto ev = cast(IocpContext*) overlapped;
+
+        switch (ev.operation)
+        {
+        case IocpOperation.accept:
+            TcpClient client = new TcpClient(this, _listener.accept());
+            register(client.fd);
+
+            synchronized (_lock) _clients[client.fd] = client;
+            _onConnected(client);
+            break;
+        case IocpOperation.connect:
+            _clients[ev.fd].weakup();
+            break;
+        case IocpOperation.read:
+            _clients[ev.fd].weakup();
+            break;
+        case IocpOperation.write:
+            
+            break;
+        case IocpOperation.event:
+            
+            break;
+        case IocpOperation.close:
+            debug writeln("close.");
+            break;
+        default:
+            debug writefln("unsupported operation type: ", ev.operation);
+            break;
+        }
     }
 
     override void stop()
