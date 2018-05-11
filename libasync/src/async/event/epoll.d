@@ -29,7 +29,7 @@ class Epoll : Selector
         this.onReceive      = onReceive;
         this.onSocketError  = onSocketError;
 
-        _fd            = epoll_create1(0);
+        _epollfd       = epoll_create1(0);
         _listener      = listener;
         _event.events  = EPOLLIN | EPOLLHUP | EPOLLERR | EPOLLET;
         _event.data.fd = listener.fd;
@@ -43,7 +43,7 @@ class Epoll : Selector
 
     bool register(int fd, ref epoll_event ev)
     {
-        if (epoll_ctl(_fd, EPOLL_CTL_ADD, fd, &ev) != 0)
+        if (epoll_ctl(_epollfd, EPOLL_CTL_ADD, fd, &ev) != 0)
         {
             if (errno != EEXIST)
             {
@@ -56,12 +56,12 @@ class Epoll : Selector
 
     int reregister(int fd, ref epoll_event ev)
     {
-       return (epoll_ctl(_fd, EPOLL_CTL_MOD, fd, &ev) == 0);
+       return (epoll_ctl(_epollfd, EPOLL_CTL_MOD, fd, &ev) == 0);
     }
 
     int deregister(int fd)
     {
-        return (epoll_ctl(_fd, EPOLL_CTL_DEL, fd, null) == 0);
+        return (epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, null) == 0);
     }
 
     override void startLoop()
@@ -77,28 +77,22 @@ class Epoll : Selector
     override void handleEvent()
     {
         epoll_event[64] events;
-        const int len = epoll_wait(_fd, events.ptr, events.length, 10);
+        const int len = epoll_wait(_epollfd, events.ptr, events.length, 10);
 
         foreach (i; 0 .. len)
         {
-            if (events[i].data.ptr is null)
-            {
-                debug writeln("event is null.");
-                continue;
-            }
-
             auto fd = events[i].data.fd;
 
             if ((events[i].events & (EPOLLHUP | EPOLLERR | EPOLLRDHUP)) != 0)
             {
                 if (fd == _listener.fd)
                 {
-                    debug writeln("listen event error.");
+                    debug writeln("listener event error.", fd);
                 }
                 else
                 {
-                    removeClient(fd);
-                    debug writeln("close event: ", events[i].data.fd);
+                    _clients[fd].close();
+                    debug writeln("close event: ", fd);
                 }
                 continue;
             }
@@ -139,8 +133,11 @@ class Epoll : Selector
         {
             deregister(c.fd);
         }
+
         deregister(_listener.fd);
-        core.sys.posix.unistd.close(_fd);
+        _listener.close();
+
+        core.sys.posix.unistd.close(_epollfd);
     }
 
     override void removeClient(int fd)
@@ -151,6 +148,6 @@ class Epoll : Selector
 
 private:
 
-    int         _fd;
+    int         _epollfd;
     epoll_event _event;
 }

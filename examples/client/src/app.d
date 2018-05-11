@@ -4,7 +4,7 @@ import std.socket;
 import std.concurrency;
 import core.thread;
 
-int size = 1024 * 1024 * 10;
+int size = 10240;// * 1024 * 10;
 
 void main(string[] argv)
 {
@@ -12,7 +12,7 @@ void main(string[] argv)
     data[0] = 1;
     data[$ - 1] = 2;
 
-    for (int i = 0; i < 10; i++)
+    for (int i = 0; i < 2; i++)
     {
         new Thread(
             {

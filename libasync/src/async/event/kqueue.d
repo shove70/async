@@ -110,8 +110,11 @@ class Kqueue : Selector
         {
             deregister(c.fd);
         }
+
         deregister(_listener.fd);
-        core.sys.posix.unistd.close(_fd);
+        _listener.close();
+
+        core.sys.posix.unistd.close(_kqueuefd);
     }
 
     override void removeClient(int fd)
@@ -122,5 +125,5 @@ class Kqueue : Selector
 
 private:
 
-    int _fd;
+    int _kqueuefd;
 }

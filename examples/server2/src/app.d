@@ -11,27 +11,22 @@ Loop onCreateServer()
     listener.bind(new InternetAddress("127.0.0.1", 12290));
     listener.listen(10);
 
-    Loop loop = new Loop(listener,
-        ((client)                  => onConnected   (client)      ),
-        ((client)                  => onDisConnected(client)      ),
-        ((client, in ubyte[] data) => onReceive     (client, data)),
-        ((client, msg)             => onSocketError (client, msg) ),
-    );
+    Loop loop = new Loop(listener, &onConnected, &onDisConnected, &onReceive, &onSocketError);
 
     return loop;
 }
 
 void main()
 {
-    LoopGroup group = new LoopGroup(() => onCreateServer());
+    LoopGroup group = new LoopGroup(&onCreateServer);
     group.start();
 
     //group.stop();
 }
 
-void onConnected(TcpClient client)
+void onConnected(string remoteAddress)
 {
-    writeln("New connection: ", client.remoteAddress().toString());
+    writeln("New connection: ", remoteAddress);
 }
 
 void onDisConnected(TcpClient client)
@@ -41,17 +36,21 @@ void onDisConnected(TcpClient client)
 
 void onReceive(TcpClient client, in ubyte[] data)
 {
-    writeln("Receive: ", data.length);
+    writefln("Receive from %s: %d", client.remoteAddress().toString(), data.length);
 
     long sent = client.write(data); // echo
 
     if (sent != data.length)
     {
-        writeln("Send Error.");
+        writefln("Send to %s Error. sent: %d", client.remoteAddress().toString(), sent);
+    }
+    else
+    {
+        writefln("Sent to %s: %d", client.remoteAddress().toString(), sent);
     }
 }
 
-void onSocketError(TcpClient client, string msg)
+void onSocketError(string remoteAddress, string msg)
 {
-    writeln("Client socket error: ", msg);
+    writeln("Client socket error: ", remoteAddress, " ", msg);
 }

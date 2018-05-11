@@ -15,9 +15,11 @@ class TcpClient : TcpStream
     this(Selector selector, Socket socket)
     {
         super(socket);
-        _selector  = selector;
 
+        _selector = selector;
         _readTask = new Fiber(&onRead);
+
+        _remoteAddress = socket.remoteAddress().toString();
     }
 
     ~this()
@@ -50,7 +52,7 @@ class TcpClient : TcpStream
                 else if (len == 0)
                 {
                     close();
-                    _selector.onDisConnected(this);
+                    _selector.onDisConnected(_remoteAddress);
                     break;
                 }
                 else
@@ -66,7 +68,7 @@ class TcpClient : TcpStream
         	        else
         	        {
                         close();
-                        _selector.onSocketError(this, "errno: " ~ errno.to!string);
+                        _selector.onSocketError(_remoteAddress, "errno: " ~ errno.to!string);
         	            break;
         	        }
                 }
@@ -102,7 +104,7 @@ class TcpClient : TcpStream
             else if (len == 0)
             {
                 close();
-                _selector.onDisConnected(this);
+                _selector.onDisConnected(_remoteAddress);
                 break;
             }
             else
@@ -119,7 +121,7 @@ class TcpClient : TcpStream
                 else
                 {
                     close();
-                    _selector.onSocketError(this, "errno: " ~ errno.to!string);
+                    _selector.onSocketError(_remoteAddress, "errno: " ~ errno.to!string);
                     break;
                 }
             }
@@ -144,4 +146,6 @@ private:
 
     Selector  _selector;
     Fiber     _readTask;
+
+    string    _remoteAddress;
 }

@@ -76,7 +76,10 @@ class Iocp : Selector
         {
             deregister(c.fd);
         }
+
         deregister(_listener.fd);
+        _listener.close();
+
         //core.sys.posix.unistd.close(_fd);
     }
 

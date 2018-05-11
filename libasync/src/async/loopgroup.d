@@ -7,7 +7,7 @@ import std.socket;
 import async.event.selector;
 import async.loop;
 
-alias OnCreateServer = Loop delegate();
+alias OnCreateServer = Loop function();
 
 class LoopGroup
 {

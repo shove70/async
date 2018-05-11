@@ -4,7 +4,7 @@
     "targetType": "executable",
     "license": "MIT License",
     "copyright": "Copyright © 2018, Shove",
-    "targetName": "client",
+    "targetName": "server",
     "description": "A server example for async.",
     "dependencies" : {
         "async": {
