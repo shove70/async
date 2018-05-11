@@ -1,0 +1,13 @@
+{
+	"authors": [
+		"Shove"
+	],
+	"name": "client",
+	"targetType": "executable",
+	"license": "MIT License",
+	"copyright": "Copyright © 2018, Shove",
+	"targetName": "client",
+	"description": "A client example for async.",
+	"dependencies" : {
+	}
+}

@@ -1,4 +1,4 @@
 # async
 A cross-platform event loop library of asynchroneous objects.
 
-Not submitted.
+Not completed, do not use.
