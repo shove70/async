@@ -10,14 +10,14 @@ void main()
     TcpListener listener = new TcpListener();
     listener.bind(new InternetAddress("127.0.0.1", 12290));
     listener.listen(10);
-    
+
     Loop loop = new Loop(listener,
         ((client)                  => onConnected   (client)      ),
         ((client)                  => onDisConnected(client)      ),
         ((client, in ubyte[] data) => onReceive     (client, data)),
         ((client, msg)             => onSocketError (client, msg) ),
     );
-    
+
     loop.run();
 }
 
@@ -34,9 +34,9 @@ void onDisConnected(TcpClient client)
 void onReceive(TcpClient client, in ubyte[] data)
 {
     writeln("Receive: ", data.length);
-    
+
     long sent = client.write(data); // echo
-    
+
     if (sent != data.length)
     {
         writeln("Send Error.");
