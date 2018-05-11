@@ -53,7 +53,7 @@ class Loop : LoopSelector
     {
         super(listener, onConnected, onDisConnected, onReceive, onSocketError);
     }
-    
+
     void run()
     {
         writefln("Thread starts listening to %s...", _listener.localAddress().toString());

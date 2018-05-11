@@ -30,7 +30,7 @@ class LoopGroup
         {
             return;
         }
-        
+
         _mainLoop.run();
 
         foreach (ref t; _loops.values)
@@ -47,9 +47,9 @@ class LoopGroup
         {
             return;
         }
-        
+
         _mainLoop.stop();
-        
+
         foreach (ref loop; _loops.keys)
         {
             loop.stop();
@@ -67,7 +67,7 @@ class LoopGroup
     {
         return _loops.length;
     }
-    
+
 private:
 
     Loop         _mainLoop;

@@ -5,7 +5,7 @@ import core.thread;
 
 import async;
 
-void main()
+Loop onCreateServer()
 {
     TcpListener listener = new TcpListener();
     listener.bind(new InternetAddress("127.0.0.1", 12290));
@@ -18,7 +18,15 @@ void main()
         ((client, msg)             => onSocketError (client, msg) ),
     );
     
-    loop.run();
+    return loop;
+}
+
+void main()
+{
+    LoopGroup group = new LoopGroup(() => onCreateServer());
+    group.start();
+    
+    //group.stop();
 }
 
 void onConnected(TcpClient client)
