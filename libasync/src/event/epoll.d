@@ -18,20 +18,22 @@ import async.net.tcpstream;
 import async.net.tcplistener;
 import async.net.tcpclient;
 
+alias LoopSelector = Epoll;
+
 class Epoll : Selector
 {
     this(TcpListener listener, OnConnected onConnected, OnDisConnected onDisConnected, OnReceive onReceive, OnSocketError onSocketError)
     {
+        this.onConnected    = onConnected;
+        this.onDisConnected = onDisConnected;
+        this.onReceive      = onReceive;
+        this.onSocketError  = onSocketError;
+
         _fd            = epoll_create1(0);
         _listener      = listener;
         _event.events  = EPOLLIN | EPOLLHUP | EPOLLERR | EPOLLET;
         _event.data.fd = listener.fd;
         register(_listener.fd, _event);
-        
-        this.onConnected    = onConnected;
-        this.onDisConnected = onDisConnected;
-        this.onReceive      = onReceive;
-        this.onSocketError  = onSocketError;
     }
 
     ~this()

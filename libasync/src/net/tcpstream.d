@@ -35,7 +35,7 @@ abstract class TcpStream
                 _socket.setOption(SocketOptionLevel.SOCKET, cast(SocketOption)SO_EXCLUSIVEADDRUSE, true);
             }
         }
-        
+
         return _reusePort;
     }
 
@@ -43,7 +43,7 @@ abstract class TcpStream
     {
         return _blocking;
     }
-    
+
     @property bool blocking(bool enabled)
     {
         _blocking        = enabled;
@@ -62,10 +62,15 @@ abstract class TcpStream
         return _socket.remoteAddress();
     }
 
+    @property Address localAddress()
+    {
+        return _socket.localAddress();
+    }
+
 protected:
 
     Socket _socket;
-    
+
     bool _reusePort = false;
     bool _blocking  = false;
 }

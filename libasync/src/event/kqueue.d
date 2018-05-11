@@ -46,6 +46,8 @@ import async.net.tcpstream;
 import async.net.tcplistener;
 import async.net.tcpclient;
 
+alias LoopSelector = Kqueue;
+
 class Kqueue : Selector
 {
     this(TcpListener listener, OnConnected onConnected, OnDisConnected onDisConnected, OnReceive onReceive, OnSocketError onSocketError)
@@ -88,7 +90,7 @@ class Kqueue : Selector
 
     override void handleEvent()
     {
-        
+
     }
 
     override void stop()

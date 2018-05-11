@@ -11,22 +11,22 @@ class TcpListener : TcpStream
         super(new TcpSocket());
         reusePort = true;
     }
-    
+
     void bind(string host, ushort port)
     {
         _socket.bind(new InternetAddress(host, port));
     }
-    
+
     void bind(InternetAddress address)
     {
         _socket.bind(address);
     }
-    
+
     void listen(int backlog = 10)
     {
         _socket.listen(backlog);
     }
-    
+
     Socket accept()
     {
         return _socket.accept();

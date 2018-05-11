@@ -11,7 +11,7 @@ alias OnSocketError  = void delegate(TcpClient, string);
 abstract class Selector
 {
     void startLoop();
-    
+
     void handleEvent();
 
     void stop();

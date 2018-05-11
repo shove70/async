@@ -16,7 +16,7 @@ class TcpClient : TcpStream
     {
         super(socket);
         _selector  = selector;
-        
+
         _readTask = new Fiber(&onRead);
     }
 
@@ -102,6 +102,7 @@ class TcpClient : TcpStream
             else if (len == 0)
             {
                 close();
+                _selector.onDisConnected(this);
                 break;
             }
             else
@@ -118,6 +119,7 @@ class TcpClient : TcpStream
                 else
                 {
                     close();
+                    _selector.onSocketError(this, "errno: " ~ errno.to!string);
                     break;
                 }
             }
@@ -128,7 +130,7 @@ class TcpClient : TcpStream
             debug writefln("The sending is incomplete, the total length is %d, but actually sent only %d.", data.length, sent);
         }
 
-        return sent;  
+        return sent;
     }
 
     void close()
@@ -140,6 +142,6 @@ class TcpClient : TcpStream
 
 private:
 
-    Selector  _selector;    
+    Selector  _selector;
     Fiber     _readTask;
 }
