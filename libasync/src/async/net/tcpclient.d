@@ -40,7 +40,7 @@ class TcpClient : TcpStream
 
             while (true)
             {
-                ubyte[8192] buffer;
+                ubyte[4096] buffer;
                 long len = _socket.receive(buffer);
 
                 if (len > 0)

@@ -31,12 +31,12 @@ class LoopGroup
             return;
         }
 
-        _mainLoop.run();
-
         foreach (ref t; _loops.values)
         {
             t.start();
         }
+
+        _mainLoop.run();
 
         _started = true;
     }

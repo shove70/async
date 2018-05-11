@@ -24,14 +24,14 @@ void main()
     //group.stop();
 }
 
-void onConnected(string remoteAddress)
+void onConnected(TcpClient client)
 {
-    writeln("New connection: ", remoteAddress);
+    writeln("New connection: ", client.remoteAddress().toString());
 }
 
-void onDisConnected(TcpClient client)
+void onDisConnected(string remoteAddress)
 {
-    writeln("Client socket close: ", client.remoteAddress().toString());
+    writeln("Client socket close: ", remoteAddress);
 }
 
 void onReceive(TcpClient client, in ubyte[] data)

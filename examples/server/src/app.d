@@ -29,16 +29,18 @@ void onReceive(TcpClient client, in ubyte[] data)
 {
     writefln("Receive from %s: %d", client.remoteAddress().toString(), data.length);
 
-    long sent = client.write(data); // echo
-
-    if (sent != data.length)
-    {
-        writefln("Send to %s Error. sent: %d", client.remoteAddress().toString(), sent);
-    }
-    else
-    {
-        writefln("Sent to %s: %d", client.remoteAddress().toString(), sent);
-    }
+    new Thread({
+        long sent = client.write(data); // echo
+    
+        if (sent != data.length)
+        {
+            writefln("Send to %s Error. sent: %d", client.remoteAddress().toString(), sent);
+        }
+        else
+        {
+            writefln("Sent to %s: %d", client.remoteAddress().toString(), sent);
+        }
+    }).start();
 }
 
 void onSocketError(string remoteAddress, string msg)
