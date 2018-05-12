@@ -24,14 +24,24 @@ class TcpClient : TcpStream
         _remoteAddress = socket.remoteAddress().toString();
     }
 
-    ~this()
-    {
-        _readTask.call();
-    }
-
     void weakup()
     {
-        _readTask.call();
+        try
+        {
+            _readTask.call();
+        }
+        catch (Exception e) { }
+    }
+
+    void termTask()
+    {
+        _terming = true;
+        while (_readTask.state != Fiber.State.HOLD) { Thread.sleep(0.msecs); }
+        while (_readTask.state != Fiber.State.TERM)
+        {
+            weakup();
+            Thread.sleep(0.msecs);writeln("Term.............OK");
+        }
     }
 
     private void onRead()
@@ -53,8 +63,8 @@ class TcpClient : TcpStream
                 }
                 else if (len == 0)
                 {
+                    _selector.removeClient(fd);
                     close();
-                    _selector.onDisConnected(_remoteAddress);
                     break;
                 }
                 else
@@ -69,8 +79,8 @@ class TcpClient : TcpStream
         	        }
         	        else
         	        {
+        	            _selector.removeClient(fd);
                         close();
-                        _selector.onSocketError(_remoteAddress, fromStringz(strerror(errno)).idup);
         	            break;
         	        }
                 }
@@ -83,7 +93,7 @@ class TcpClient : TcpStream
 
             Fiber.yield();
 
-            if (!_selector.runing)
+            if (!_selector.runing || _terming)
             {
                 break;
             }
@@ -110,8 +120,8 @@ class TcpClient : TcpStream
             }
             else if (len == 0)
             {
+                _selector.removeClient(fd);
                 close();
-                _selector.onDisConnected(_remoteAddress);
                 break;
             }
             else
@@ -127,8 +137,8 @@ class TcpClient : TcpStream
                 }
                 else
                 {
+                    _selector.removeClient(fd);
                     close();
-                    _selector.onSocketError(_remoteAddress, fromStringz(strerror(errno)).idup);
                     break;
                 }
             }
@@ -144,15 +154,21 @@ class TcpClient : TcpStream
 
     void close()
     {
-        _selector.removeClient(fd);
+        new Thread( { Thread.sleep(0.seconds); termTask(); } ).start();
+
         _socket.shutdown(SocketShutdown.BOTH);
         _socket.close();
+
+        _selector.onSocketError(_remoteAddress, fromStringz(strerror(errno)).idup);
     }
+
+public:
+    string    _remoteAddress;
 
 private:
 
     Selector  _selector;
     Fiber     _readTask;
 
-    string    _remoteAddress;
+    bool      _terming = false;
 }

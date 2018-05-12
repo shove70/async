@@ -18,6 +18,7 @@ import async.event.selector;
 import async.net.tcpstream;
 import async.net.tcplistener;
 import async.net.tcpclient;
+import async.container.map;
 
 alias LoopSelector = Epoll;
 
@@ -31,6 +32,7 @@ class Epoll : Selector
         this.onSocketError  = onSocketError;
 
         _lock          = new Mutex;
+        _clients       = new Map!(int, TcpClient);
 
         _epollFd       = epoll_create1(0);
         _listener      = listener;
@@ -59,12 +61,12 @@ class Epoll : Selector
         return true;
     }
 
-    private int reregister(int fd, ref epoll_event ev)
+    private bool reregister(int fd, ref epoll_event ev)
     {
        return (epoll_ctl(_epollFd, EPOLL_CTL_MOD, fd, &ev) == 0);
     }
 
-    private int deregister(int fd)
+    private bool deregister(int fd)
     {
         return (epoll_ctl(_epollFd, EPOLL_CTL_DEL, fd, null) == 0);
     }
@@ -96,7 +98,9 @@ class Epoll : Selector
                 }
                 else
                 {
-                    _clients[fd].close();
+                    TcpClient client = _clients[fd];
+                    removeClient(fd);
+                    client.close();
                     debug writeln("close event: ", fd);
                 }
                 continue;
@@ -111,7 +115,7 @@ class Epoll : Selector
                 ev.data.fd = client.fd;
                 register(client.fd, ev);
 
-                synchronized (_lock) _clients[client.fd] = client;
+                _clients[client.fd] = client;
                 _onConnected(client);
             }
             else if (events[i].events & EPOLLIN)
@@ -134,10 +138,13 @@ class Epoll : Selector
         }
 
         _isDisposed = true;
-        foreach (c; _clients)
+        foreach (ref c; _clients)
         {
             deregister(c.fd);
+            c.close();
         }
+
+        _clients.clear();
 
         deregister(_listener.fd);
         _listener.close();
@@ -148,7 +155,7 @@ class Epoll : Selector
     override void removeClient(int fd)
     {
         deregister(fd);
-        synchronized (_lock) _clients.remove(fd);
+        _clients.remove(fd);
     }
 
 private:

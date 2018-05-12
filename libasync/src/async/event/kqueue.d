@@ -59,6 +59,7 @@ import async.event.selector;
 import async.net.tcpstream;
 import async.net.tcplistener;
 import async.net.tcpclient;
+import async.container.map;
 
 alias LoopSelector = Kqueue;
 
@@ -77,10 +78,11 @@ class Kqueue : Selector
         this.onSocketError  = onSocketError;
 
         _lock          = new Mutex;
-        
+        _clients       = new Map!(int, TcpClient);
+
         _kqueueFd      = kqueue();
         _listener      = listener;
-        
+
         register(_listener.fd);
     }
 
@@ -106,7 +108,7 @@ class Kqueue : Selector
         {
             read |= EV_CLEAR;
         }
-        
+
         EV_SET(&ev, fd, EVFILT_READ, read, 0, 0, null);
 
         return (kevent(_kqueueFd, &ev, 1, null, 0, null) >= 0);
@@ -156,7 +158,9 @@ class Kqueue : Selector
                 }
                 else
                 {
-                    _clients[fd].close();
+                    TcpClient client = _clients[fd];
+                    removeClient(fd);
+                    client.close();
                     debug writeln("close event: ", fd);
                 }
                 continue;
@@ -168,7 +172,7 @@ class Kqueue : Selector
 
                 register(client.fd, true);
 
-                synchronized (_lock) _clients[client.fd] = client;
+                _clients[client.fd] = client;
                 _onConnected(client);
             }
             else if ((events[i].filter & EVFILT_READ) || (events[i].filter & EVFILT_TIMER))
@@ -194,7 +198,10 @@ class Kqueue : Selector
         foreach (c; _clients)
         {
             deregister(c.fd);
+            c.close();
         }
+
+        _clients.clear();
 
         deregister(_listener.fd);
         _listener.close();

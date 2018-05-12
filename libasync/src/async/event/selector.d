@@ -4,6 +4,7 @@ import core.sync.mutex;
 
 import async.net.tcplistener;
 import async.net.tcpclient;
+import async.container.map;
 
 alias OnConnected    = void function(TcpClient);
 alias OnDisConnected = void function(string);
@@ -22,14 +23,14 @@ abstract class Selector
 
 protected:
 
-    bool           _isDisposed = false;
-    TcpListener    _listener;
+    bool                 _isDisposed = false;
+    TcpListener          _listener;
 
-    TcpClient[int] _clients;
+    Map!(int, TcpClient) _clients;
 
-    OnConnected    _onConnected;
+    OnConnected          _onConnected;
 
-    Mutex          _lock;
+    Mutex                _lock;
 
 public:
 

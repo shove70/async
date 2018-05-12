@@ -1,10 +1,15 @@
 module async.loop;
 
-import std.socket;
 import std.stdio;
+import std.socket;
 
 import async.event.selector;
 import async.net.tcplistener;
+
+version (Posix)
+{
+	import core.sys.posix.signal;
+}
 
 version(linux)
 {
@@ -51,6 +56,15 @@ class Loop : LoopSelector
 {
     this(TcpListener listener, OnConnected onConnected, OnDisConnected onDisConnected, OnReceive onReceive, OnSocketError onSocketError)
     {
+        version (Posix)
+        {
+            sigset_t mask1;
+            sigemptyset(&mask1);
+            sigaddset(&mask1, SIGPIPE);
+            sigaddset(&mask1, SIGILL);
+            sigprocmask(SIG_BLOCK, &mask1, null);
+        }
+
         super(listener, onConnected, onDisConnected, onReceive, onSocketError);
     }
 

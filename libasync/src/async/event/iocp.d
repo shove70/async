@@ -12,6 +12,7 @@ import async.event.selector;
 import async.net.tcpstream;
 import async.net.tcplistener;
 import async.net.tcpclient;
+import async.container.map;
 
 alias LoopSelector = Iocp;
 
@@ -42,6 +43,8 @@ class Iocp : Selector
         this.onSocketError  = onSocketError;
 
         _lock          = new Mutex;
+        _clients       = new Map!(int, TcpClient);
+
         _handle        = CreateIoCompletionPort(INVALID_HANDLE_VALUE, null, 0, 0);
         _listener      = listener;
     }
@@ -110,7 +113,7 @@ class Iocp : Selector
             TcpClient client = new TcpClient(this, _listener.accept());
             register(client.fd);
 
-            synchronized (_lock) _clients[client.fd] = client;
+            _clients[client.fd] = client;
             _onConnected(client);
             break;
         case IocpOperation.connect:
@@ -120,13 +123,16 @@ class Iocp : Selector
             _clients[ev.fd].weakup();
             break;
         case IocpOperation.write:
-            
+
             break;
         case IocpOperation.event:
-            
+
             break;
         case IocpOperation.close:
-            debug writeln("close.");
+            TcpClient client = _clients[ev.fd];
+            removeClient(ev.fd);
+            client.close();
+            debug writeln("close event: ");//, fd);
             break;
         default:
             debug writefln("unsupported operation type: ", ev.operation);
@@ -150,12 +156,13 @@ class Iocp : Selector
         foreach (c; _clients)
         {
             deregister(c.fd);
+            c.close();
         }
+
+        _clients.clear();
 
         deregister(_listener.fd);
         _listener.close();
-
-        //core.sys.posix.unistd.close(_fd);
     }
 
     override void removeClient(int fd)
