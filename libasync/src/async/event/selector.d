@@ -7,9 +7,9 @@ import async.net.tcpclient;
 import async.container.map;
 
 alias OnConnected    = void function(TcpClient);
-alias OnDisConnected = void function(string);
+alias OnDisConnected = void function(int, string);
 alias OnReceive      = void function(TcpClient, in ubyte[]);
-alias OnSocketError  = void function(string, string);
+alias OnSocketError  = void function(int, string, string);
 
 enum EventType
 {

@@ -26,7 +26,8 @@ class TcpClient : TcpStream
         _onRead     = new Fiber(&_read);
         _onWrite    = new Fiber(&_write);
 
-        _remoteAddress = socket.remoteAddress().toString();
+        _remoteAddress = remoteAddress.toString();
+        _fd            = fd;
     }
 
     void weakup(EventType et)
@@ -64,7 +65,6 @@ class TcpClient : TcpStream
                     Thread.sleep(0.msecs);
                 }
             }
-            debug writeln("Read TERM...");
         }).start();
         
         new Thread(
@@ -83,7 +83,6 @@ class TcpClient : TcpStream
                     Thread.sleep(0.msecs);
                 }
             }
-            debug writeln("Write TERM...");
         }).start();
     }
 
@@ -106,8 +105,6 @@ class TcpClient : TcpStream
                 }
                 else if (len == 0)
                 {
-                    _selector.removeClient(fd);
-                    close();
                     data = null;
                     break;
                 }
@@ -123,8 +120,6 @@ class TcpClient : TcpStream
         	        }
         	        else
         	        {
-        	            _selector.removeClient(fd);
-                        close(errno);
                         data = null;
         	            break;
         	        }
@@ -147,11 +142,67 @@ class TcpClient : TcpStream
 
     private void _write()
     {
+//        if (!_socket.isAlive())
+//        {
+//            return;
+//        }
+//
+//        long sent = 0;
+//
+//        while (sent < data.length)
+//        {
+//            long len = _socket.send(data[cast(uint)sent .. $]);
+//
+//            if (len > 0)
+//            {
+//                sent += len;
+//                continue;
+//            }
+//            else if (len == 0)
+//            {
+//                _selector.removeClient(fd);
+//                close();
+//                break;
+//            }
+//            else
+//            {
+//                if (errno == EINTR)
+//                {
+//                    continue;
+//                }
+//                else if (errno == EAGAIN || errno == EWOULDBLOCK)
+//                {
+//                    //Thread.sleep(500.msecs);
+//                    continue;
+//                }
+//                else
+//                {
+//                    _selector.removeClient(fd);
+//                    close(errno);
+//                    break;
+//                }
+//            }
+//        }
+//
+//        if (sent < data.length)
+//        {
+//            debug writefln("The sending is incomplete, the total length is %d, but actually sent only %d.", data.length, sent);
+//        }
 
+        //return sent;
     }
 
     long write(in ubyte[] data)
     {
+//        if (!_socket.isAlive())
+//        {
+//            return -1;
+//        }
+//
+//        _writeQueue.push(cast(ubyte[])data);
+//
+//        return 0;
+
         if (!_socket.isAlive())
         {
             return 0;
@@ -170,8 +221,6 @@ class TcpClient : TcpStream
             }
             else if (len == 0)
             {
-                _selector.removeClient(fd);
-                close();
                 break;
             }
             else
@@ -182,13 +231,11 @@ class TcpClient : TcpStream
                 }
                 else if (errno == EAGAIN || errno == EWOULDBLOCK)
                 {
-                    //Thread.sleep(500.msecs);
+                    Thread.sleep(0.msecs);
                     continue;
                 }
                 else
                 {
-                    _selector.removeClient(fd);
-                    close(errno);
                     break;
                 }
             }
@@ -211,10 +258,10 @@ class TcpClient : TcpStream
 
         if (errno != 0)
         {
-            _selector.onSocketError(_remoteAddress, fromStringz(strerror(errno)).idup);
+            _selector.onSocketError(_fd, _remoteAddress, fromStringz(strerror(errno)).idup);
         }
 
-        _selector.onDisConnected(_remoteAddress);
+        _selector.onDisConnected(_fd, _remoteAddress);
     }
 
 private:
@@ -226,5 +273,6 @@ private:
     Fiber           _onWrite;
 
     string          _remoteAddress;
+    int             _fd;
     bool            _terming = false;
 }

@@ -20,8 +20,9 @@ void onConnected(TcpClient client)
     writeln("New connection: ", client.remoteAddress().toString());
 }
 
-void onDisConnected(string remoteAddress)
+void onDisConnected(int fd, string remoteAddress)
 {
+    queue.remove(fd);
     writefln("\033[7mClient socket close: %s\033[0m", remoteAddress);
 }
 
@@ -55,7 +56,7 @@ void onReceive(TcpClient client, in ubyte[] data)
     }).start();
 }
 
-void onSocketError(string remoteAddress, string msg)
+void onSocketError(int fd, string remoteAddress, string msg)
 {
     writeln("Client socket error: ", remoteAddress, " ", msg);
 }
