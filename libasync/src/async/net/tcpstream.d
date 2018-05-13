@@ -67,6 +67,11 @@ abstract class TcpStream
         return _socket.localAddress();
     }
 
+    @property bool isAlive()
+    {
+        return _socket.isAlive();
+    }
+
 protected:
 
     Socket _socket;

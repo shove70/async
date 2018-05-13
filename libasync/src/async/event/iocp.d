@@ -36,12 +36,13 @@ struct IocpContext
 
 class Iocp : Selector
 {
-    this(TcpListener listener, OnConnected onConnected, OnDisConnected onDisConnected, OnReceive onReceive, OnSocketError onSocketError)
+    this(TcpListener listener, OnConnected onConnected, OnDisConnected onDisConnected, OnReceive onReceive, OnSendCompleted onSendCompleted, OnSocketError onSocketError)
     {
-        this._onConnected   = onConnected;
-        this.onDisConnected = onDisConnected;
-        this.onReceive      = onReceive;
-        this.onSocketError  = onSocketError;
+        this._onConnected    = onConnected;
+        this.onDisConnected  = onDisConnected;
+        this.onReceive       = onReceive;
+        this.onSendCompleted = onSendCompleted;
+        this.onSocketError   = onSocketError;
 
         _lock          = new Mutex;
         _clients       = new Map!(int, TcpClient);
@@ -55,18 +56,18 @@ class Iocp : Selector
         dispose();
     }
 
-    private bool register(int fd)
+    override bool register(int fd, EventType et)
     {
         CreateIoCompletionPort(cast(HANDLE)fd, _handle, 0, 0);
         return true;
     }
 
-    private bool reregister(int fd)
+    override bool reregister(int fd, EventType et)
     {
        return true;
     }
 
-    private bool deregister(int fd)
+    override bool deregister(int fd)
     {
         return true;
     }
@@ -112,10 +113,13 @@ class Iocp : Selector
         {
         case IocpOperation.accept:
             TcpClient client = new TcpClient(this, _listener.accept());
-            register(client.fd);
-
+            register(client.fd, EventType.READ);
             _clients[client.fd] = client;
-            _onConnected(client);
+
+            if (_onConnected !is null)
+            {
+                _onConnected(client);
+            }
             break;
         case IocpOperation.connect:
             TcpClient client = _clients[ev.fd];
@@ -174,7 +178,11 @@ class Iocp : Selector
         foreach (ref c; _clients)
         {
             deregister(c.fd);
-            c.close();
+
+            if (c.isAlive)
+            {
+                c.close();
+            }
         }
         _clients.unlock();
 

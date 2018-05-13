@@ -54,7 +54,7 @@ else
 
 class Loop : LoopSelector
 {
-    this(TcpListener listener, OnConnected onConnected, OnDisConnected onDisConnected, OnReceive onReceive, OnSocketError onSocketError)
+    this(TcpListener listener, OnConnected onConnected, OnDisConnected onDisConnected, OnReceive onReceive, OnSendCompleted onSendCompleted, OnSocketError onSocketError)
     {
         version (Posix)
         {
@@ -65,7 +65,20 @@ class Loop : LoopSelector
             sigprocmask(SIG_BLOCK, &mask1, null);
         }
 
-        super(listener, onConnected, onDisConnected, onReceive, onSocketError);
+        super(listener, onConnected, onDisConnected, onReceive, onSendCompleted, onSocketError);
+
+        debug
+        {
+            import core.thread;
+            new Thread(
+            {
+                while (1)
+                {
+                    writefln("clients: %d", _clients.length);
+                    Thread.sleep(1.seconds);
+                }
+            }).start();
+        }
     }
 
     void run()

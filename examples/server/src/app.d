@@ -11,7 +11,7 @@ void main()
     listener.bind(new InternetAddress("127.0.0.1", 12290));
     listener.listen(10);
 
-    Loop loop = new Loop(listener, &onConnected, &onDisConnected, &onReceive, &onSocketError);
+    Loop loop = new Loop(listener, &onConnected, &onDisConnected, &onReceive, &onSendCompleted, &onSocketError);
     loop.run();
 }
 
@@ -42,23 +42,24 @@ void onReceive(TcpClient client, in ubyte[] data)
     ubyte[] buffer   = queue[client.fd][0 .. len];
     queue[client.fd] = queue[client.fd][len .. $];
 
-    new Thread({
-        long sent = client.write(buffer); // echo
-    
-        if (sent != buffer.length)
-        {
-            writefln("Send to %s Error. sent: %d", client.remoteAddress().toString(), sent);
-        }
-        else
-        {
-            writefln("Sent to %s: %d", client.remoteAddress().toString(), sent);
-        }
-    }).start();
+    client.send(buffer); // echo
 }
 
 void onSocketError(int fd, string remoteAddress, string msg)
 {
     writeln("Client socket error: ", remoteAddress, " ", msg);
+}
+
+void onSendCompleted(int fd, string remoteAddress, in ubyte[] data, size_t sent_size)
+{
+    if (sent_size != data.length)
+    {
+        writefln("Send to %s Error. Original size: %d, sent: %d", remoteAddress, data.length, sent_size);
+    }
+    else
+    {
+        writefln("Sent to %s completed, Size: %d", remoteAddress, sent_size);
+    }
 }
 
 __gshared int size = 10000000;

@@ -25,12 +25,13 @@ alias LoopSelector = Epoll;
 
 class Epoll : Selector
 {
-    this(TcpListener listener, OnConnected onConnected, OnDisConnected onDisConnected, OnReceive onReceive, OnSocketError onSocketError)
+    this(TcpListener listener, OnConnected onConnected, OnDisConnected onDisConnected, OnReceive onReceive, OnSendCompleted onSendCompleted, OnSocketError onSocketError)
     {
-        this._onConnected   = onConnected;
-        this.onDisConnected = onDisConnected;
-        this.onReceive      = onReceive;
-        this.onSocketError  = onSocketError;
+        this._onConnected    = onConnected;
+        this.onDisConnected  = onDisConnected;
+        this.onReceive       = onReceive;
+        this.onSendCompleted = onSendCompleted;
+        this.onSocketError   = onSocketError;
 
         _lock          = new Mutex;
         _clients       = new Map!(int, TcpClient);
@@ -38,10 +39,7 @@ class Epoll : Selector
         _epollFd       = epoll_create1(0);
         _listener      = listener;
 
-        epoll_event ev;
-        ev.events  = EPOLLIN | EPOLLHUP | EPOLLERR;
-        ev.data.fd = listener.fd;
-        register(_listener.fd, ev);
+        register(_listener.fd, EventType.ACCEPT);
     }
 
     ~this()
@@ -49,8 +47,25 @@ class Epoll : Selector
         dispose();
     }
 
-    private bool register(int fd, ref epoll_event ev)
+    override bool register(int fd, EventType et)
     {
+        epoll_event ev;
+        ev.events  = EPOLLHUP | EPOLLERR;
+        ev.data.fd = fd;
+
+        if (et != EventType.ACCEPT)
+        {
+            ev.events |= EPOLLET;
+        }
+        if (et == EventType.ACCEPT || et == EventType.READ || et == EventType.READWRITE)
+        {
+            ev.events |= EPOLLIN;
+        }
+        if (et == EventType.WRITE || et == EventType.READWRITE)
+        {
+            ev.events |= EPOLLOUT;
+        }
+
         if (epoll_ctl(_epollFd, EPOLL_CTL_ADD, fd, &ev) != 0)
         {
             if (errno != EEXIST)
@@ -62,12 +77,29 @@ class Epoll : Selector
         return true;
     }
 
-    private bool reregister(int fd, ref epoll_event ev)
+    override bool reregister(int fd, EventType et)
     {
-       return (epoll_ctl(_epollFd, EPOLL_CTL_MOD, fd, &ev) == 0);
+        epoll_event ev;
+        ev.events  = EPOLLHUP | EPOLLERR;
+        ev.data.fd = fd;
+
+        if (et != EventType.ACCEPT)
+        {
+            ev.events |= EPOLLET;
+        }
+        if (et == EventType.ACCEPT || et == EventType.READ || et == EventType.READWRITE)
+        {
+            ev.events |= EPOLLIN;
+        }
+        if (et == EventType.WRITE || et == EventType.READWRITE)
+        {
+            ev.events |= EPOLLOUT;
+        }
+
+        return (epoll_ctl(_epollFd, EPOLL_CTL_MOD, fd, &ev) == 0);
     }
 
-    private bool deregister(int fd)
+    override bool deregister(int fd)
     {
         return (epoll_ctl(_epollFd, EPOLL_CTL_DEL, fd, null) == 0);
     }
@@ -113,14 +145,13 @@ class Epoll : Selector
             if (fd == _listener.fd)
             {
                 TcpClient client = new TcpClient(this, _listener.accept());
-
-                epoll_event ev;
-                ev.events  = EPOLLIN | EPOLLHUP | EPOLLERR | EPOLLET;
-                ev.data.fd = client.fd;
-                register(client.fd, ev);
-
+                register(client.fd, EventType.READ);
                 _clients[client.fd] = client;
-                _onConnected(client);
+
+                if (_onConnected !is null)
+                {
+                    _onConnected(client);
+                }
             }
             else if (events[i].events & EPOLLIN)
             {
@@ -129,6 +160,15 @@ class Epoll : Selector
                 if (client !is null)
                 {
                     client.weakup(EventType.READ);
+                }
+            }
+            else if (events[i].events & EPOLLOUT)
+            {
+                TcpClient client = _clients[fd];
+
+                if (client !is null)
+                {
+                    client.weakup(EventType.WRITE);
                 }
             }
         }
@@ -152,7 +192,11 @@ class Epoll : Selector
         foreach (ref c; _clients)
         {
             deregister(c.fd);
-            c.close();
+
+            if (c.isAlive)
+            {
+                c.close();
+            }
         }
         _clients.unlock();
 

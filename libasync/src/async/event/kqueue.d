@@ -71,12 +71,13 @@ extern (D) void EV_SET(kevent_t* kevp, typeof(kevent_t.tupleof) args) @nogc noth
 
 class Kqueue : Selector
 {
-    this(TcpListener listener, OnConnected onConnected, OnDisConnected onDisConnected, OnReceive onReceive, OnSocketError onSocketError)
+    this(TcpListener listener, OnConnected onConnected, OnDisConnected onDisConnected, OnReceive onReceive, OnSendCompleted onSendCompleted, OnSocketError onSocketError)
     {
-        this._onConnected   = onConnected;
-        this.onDisConnected = onDisConnected;
-        this.onReceive      = onReceive;
-        this.onSocketError  = onSocketError;
+        this._onConnected    = onConnected;
+        this.onDisConnected  = onDisConnected;
+        this.onReceive       = onReceive;
+        this.onSendCompleted = onSendCompleted;
+        this.onSocketError   = onSocketError;
 
         _lock          = new Mutex;
         _clients       = new Map!(int, TcpClient);
@@ -84,7 +85,7 @@ class Kqueue : Selector
         _kqueueFd      = kqueue();
         _listener      = listener;
 
-        register(_listener.fd);
+        register(_listener.fd, EventType.ACCEPT);
     }
 
     ~this()
@@ -92,41 +93,40 @@ class Kqueue : Selector
         dispose();
     }
 
-    private bool registerTimer(int fd)
+    override bool register(int fd, EventType et)
     {
         kevent_t ev;
-        size_t time = 20;
-        EV_SET(&ev, fd, EVFILT_TIMER, EV_ADD | EV_ENABLE | EV_CLEAR, 0, time, null);
-
-        return (kevent(_kqueueFd, &ev, 1, null, 0, null) >= 0);
-    }
-
-    private bool register(int fd, bool isETMode = false)
-    {
-        kevent_t ev;
-        short read  = EV_ADD | EV_ENABLE;
-        if (isETMode)
+        short  filter = 0;
+        ushort flags  = EV_ADD | EV_ENABLE;
+        
+        if (et != EventType.ACCEPT)
         {
-            read |= EV_CLEAR;
+            flags |= EV_CLEAR;
         }
 
-        EV_SET(&ev, fd, EVFILT_READ, read, 0, 0, null);
+        if (et == EventType.ACCEPT || et == EventType.READ || et == EventType.READWRITE)
+        {
+            filter |= EVFILT_READ;
+        }
+        if (et == EventType.WRITE || et == EventType.READWRITE)
+        {
+            filter |= EVFILT_WRITE;
+        }
+
+        EV_SET(&ev, fd, filter, flags, 0, 0, null);
 
         return (kevent(_kqueueFd, &ev, 1, null, 0, null) >= 0);
     }
 
-    private bool deregisterTimer(int fd)
+    override bool reregister(int fd, EventType et)
     {
-        kevent_t ev;
-        EV_SET(&ev, fd, EVFILT_TIMER, EV_DELETE, 0, 0, null); 
-
-        return (kevent(_kqueueFd, &ev, 1, null, 0, null) >= 0);
+        return register(fd, et);
     }
 
-    private bool deregister(int fd)
+    override bool deregister(int fd)
     {
         kevent_t ev;
-        EV_SET(&ev, fd, EVFILT_READ, EV_DELETE, 0, 0, null);
+        EV_SET(&ev, fd, EVFILT_READ | EVFILT_WRITE, EV_DELETE, 0, 0, null);
 
         return (kevent(_kqueueFd, &ev, 1, null, 0, null) >= 0);
     }
@@ -173,19 +173,30 @@ class Kqueue : Selector
             if (fd == _listener.fd)
             {
                 TcpClient client = new TcpClient(this, _listener.accept());
-
-                register(client.fd, true);
-
+                register(client.fd, EventType.READ);
                 _clients[client.fd] = client;
-                _onConnected(client);
+
+                if (_onConnected !is null)
+                {
+                    _onConnected(client);
+                }
             }
-            else if ((events[i].filter & EVFILT_READ) || (events[i].filter & EVFILT_TIMER))
+            else if (events[i].filter & EVFILT_READ)
             {
                 TcpClient client = _clients[fd];
 
                 if (client !is null)
                 {
                     client.weakup(EventType.READ);
+                }
+            }
+            else if (events[i].filter & EVFILT_WRITE)
+            {
+                TcpClient client = _clients[fd];
+
+                if (client !is null)
+                {
+                    client.weakup(EventType.WRITE);
                 }
             }
         }
@@ -209,7 +220,11 @@ class Kqueue : Selector
         foreach (ref c; _clients)
         {
             deregister(c.fd);
-            c.close();
+
+            if (c.isAlive)
+            {
+                c.close();
+            }
         }
         _clients.unlock();
 
