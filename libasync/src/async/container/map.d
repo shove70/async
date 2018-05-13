@@ -1,7 +1,9 @@
 module async.container.map;
 
-import std.exception;
 import core.sync.mutex;
+
+import std.exception;
+import std.typecons;
 
 class Map(TKey, TValue)
 {
@@ -29,7 +31,10 @@ class Map(TKey, TValue)
     {
 	    synchronized (_lock)
         {
-            assert (key in _data);
+            if (key !in _data)
+            {
+                return null;
+            }
 
             return _data[key];
         }
@@ -43,16 +48,22 @@ class Map(TKey, TValue)
         }
     }
 
-    @property ref inout(TValue) front() inout
+    @property ref auto front() inout
     {
-        assert (_data.length > 0);
+        if (_data.length == 0)
+        {
+            return null;
+        }
 
         return _data[_data.keys[0]];
     }
 
-    @property ref inout(TValue) back() inout
+    @property ref auto back() inout
     {
-        assert (_data.length > 0);
+        if (_data.length == 0)
+        {
+            return null;
+        }
 
         return _data[_data.keys[$ - 1]];
     }
@@ -64,9 +75,13 @@ class Map(TKey, TValue)
         foreach (d; _data)
         {
             result = dg(d);
+
             if (result)
+            {
                 break;
+            }
         }
+
         return result;
     }
 
@@ -77,8 +92,13 @@ class Map(TKey, TValue)
         for (size_t i = 0; i < _data.keys.length; i++)
         {
             result = dg(_data.keys[i], _data[_data.keys[i]]);
-            if (result) break;
+
+            if (result)
+            {
+                break;
+            }
         }
+
         return result;
     }
 
@@ -106,6 +126,16 @@ class Map(TKey, TValue)
         {
             _data.clear();
         }
+    }
+
+    void lock()
+    {
+        _lock.lock();
+    }
+
+    void unlock()
+    {
+        _lock.unlock();
     }
 
 private:

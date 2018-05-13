@@ -12,6 +12,7 @@ import core.sys.posix.netinet.in_;
 import core.sys.posix.unistd;
 import core.sys.posix.time;
 import core.sync.mutex;
+
 import std.socket;
 
 import async.event.selector;
@@ -99,8 +100,11 @@ class Epoll : Selector
                 else
                 {
                     TcpClient client = _clients[fd];
-                    removeClient(fd);
-                    client.close();
+                    if (client !is null)
+                    {
+                        removeClient(fd);
+                        client.close();
+                    }
                     debug writeln("close event: ", fd);
                 }
                 continue;
@@ -120,7 +124,12 @@ class Epoll : Selector
             }
             else if (events[i].events & EPOLLIN)
             {
-                _clients[fd].weakup();
+                TcpClient client = _clients[fd];
+
+                if (client !is null)
+                {
+                    client.weakup(EventType.READ);
+                }
             }
         }
     }
@@ -138,11 +147,14 @@ class Epoll : Selector
         }
 
         _isDisposed = true;
+
+        _clients.lock();
         foreach (ref c; _clients)
         {
             deregister(c.fd);
             c.close();
         }
+        _clients.unlock();
 
         _clients.clear();
 

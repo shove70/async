@@ -11,6 +11,11 @@ alias OnDisConnected = void function(string);
 alias OnReceive      = void function(TcpClient, in ubyte[]);
 alias OnSocketError  = void function(string, string);
 
+enum EventType
+{
+    ACCEPT, READ, WRITE
+}
+
 abstract class Selector
 {
     void startLoop();

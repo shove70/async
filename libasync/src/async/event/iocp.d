@@ -6,6 +6,7 @@ version (Windows):
 
 import core.sys.windows.windows;
 import core.sync.mutex;
+
 import std.socket;
 
 import async.event.selector;
@@ -117,10 +118,20 @@ class Iocp : Selector
             _onConnected(client);
             break;
         case IocpOperation.connect:
-            _clients[ev.fd].weakup();
+            TcpClient client = _clients[ev.fd];
+
+            if (client !is null)
+            {
+                client.weakup(EventType.READ);
+            }
             break;
         case IocpOperation.read:
-            _clients[ev.fd].weakup();
+            TcpClient client = _clients[ev.fd];
+
+            if (client !is null)
+            {
+                client.weakup(EventType.READ);
+            }
             break;
         case IocpOperation.write:
 
@@ -130,9 +141,14 @@ class Iocp : Selector
             break;
         case IocpOperation.close:
             TcpClient client = _clients[ev.fd];
-            removeClient(ev.fd);
-            client.close();
-            debug writeln("close event: ");//, fd);
+
+            if (client !is null)
+            {
+                removeClient(ev.fd);
+                client.close();
+            }
+
+            debug writeln("close event: ", ev.fd);
             break;
         default:
             debug writefln("unsupported operation type: ", ev.operation);
@@ -153,11 +169,14 @@ class Iocp : Selector
         }
 
         _isDisposed = true;
-        foreach (c; _clients)
+
+        _clients.lock();
+        foreach (ref c; _clients)
         {
             deregister(c.fd);
             c.close();
         }
+        _clients.unlock();
 
         _clients.clear();
 

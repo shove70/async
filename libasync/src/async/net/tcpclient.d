@@ -5,12 +5,14 @@ debug import std.stdio;
 import core.thread;
 import core.stdc.errno;
 import core.stdc.string;
+
 import std.socket;
 import std.conv;
 import std.string;
 
 import async.event.selector;
 import async.net.tcpstream;
+import async.container.queue;
 
 class TcpClient : TcpStream
 {
@@ -18,41 +20,82 @@ class TcpClient : TcpStream
     {
         super(socket);
 
-        _selector = selector;
-        _readTask = new Fiber(&onRead);
+        _selector   = selector;
+        _writeQueue = new Queue!(ubyte[])();
+
+        _onRead     = new Fiber(&_read);
+        _onWrite    = new Fiber(&_write);
 
         _remoteAddress = socket.remoteAddress().toString();
     }
 
-    void weakup()
+    void weakup(EventType et)
     {
-        try
+        final switch (et)
         {
-            _readTask.call();
+            case EventType.READ:
+                _onRead.call();
+                break;
+            case EventType.WRITE:
+                _onWrite.call();
+                break;
+            case EventType.ACCEPT:
+                break;
         }
-        catch (Exception e) { }
     }
 
     void termTask()
     {
         _terming = true;
-        while (_readTask.state != Fiber.State.HOLD) { Thread.sleep(0.msecs); }
-        while (_readTask.state != Fiber.State.TERM)
+        
+        new Thread(
         {
-            weakup();
-            Thread.sleep(0.msecs);writeln("Term.............OK");
-        }
+            if (_onRead.state != Fiber.State.TERM)
+            {
+                while (_onRead.state != Fiber.State.HOLD)
+                {
+                    Thread.sleep(50.msecs);
+                }
+        
+                weakup(EventType.READ);
+                
+                while (_onRead.state != Fiber.State.TERM)
+                {
+                    Thread.sleep(0.msecs);
+                }
+            }
+            debug writeln("Read TERM...");
+        }).start();
+        
+        new Thread(
+        {
+            if (_onWrite.state != Fiber.State.TERM)
+            {
+                while (_onWrite.state != Fiber.State.HOLD)
+                {
+                    Thread.sleep(50.msecs);
+                }
+        
+                weakup(EventType.WRITE);
+                
+                while (_onWrite.state != Fiber.State.TERM)
+                {
+                    Thread.sleep(0.msecs);
+                }
+            }
+            debug writeln("Write TERM...");
+        }).start();
     }
 
-    private void onRead()
+    private void _read()
     {
         while (true)
         {
-            ubyte[] data;
+            ubyte[]     data;
+            ubyte[4096] buffer;
 
             while (true)
             {
-                ubyte[4096] buffer;
                 long len = _socket.receive(buffer);
 
                 if (len > 0)
@@ -65,6 +108,7 @@ class TcpClient : TcpStream
                 {
                     _selector.removeClient(fd);
                     close();
+                    data = null;
                     break;
                 }
                 else
@@ -80,7 +124,8 @@ class TcpClient : TcpStream
         	        else
         	        {
         	            _selector.removeClient(fd);
-                        close();
+                        close(errno);
+                        data = null;
         	            break;
         	        }
                 }
@@ -98,6 +143,11 @@ class TcpClient : TcpStream
                 break;
             }
         }
+    }
+
+    private void _write()
+    {
+
     }
 
     long write(in ubyte[] data)
@@ -132,13 +182,13 @@ class TcpClient : TcpStream
                 }
                 else if (errno == EAGAIN || errno == EWOULDBLOCK)
                 {
-                    Thread.sleep(50.msecs);
+                    //Thread.sleep(500.msecs);
                     continue;
                 }
                 else
                 {
                     _selector.removeClient(fd);
-                    close();
+                    close(errno);
                     break;
                 }
             }
@@ -152,23 +202,29 @@ class TcpClient : TcpStream
         return sent;
     }
 
-    void close()
+    void close(int errno = 0)
     {
-        new Thread( { Thread.sleep(0.seconds); termTask(); } ).start();
+        termTask();
 
         _socket.shutdown(SocketShutdown.BOTH);
         _socket.close();
 
-        _selector.onSocketError(_remoteAddress, fromStringz(strerror(errno)).idup);
-    }
+        if (errno != 0)
+        {
+            _selector.onSocketError(_remoteAddress, fromStringz(strerror(errno)).idup);
+        }
 
-public:
-    string    _remoteAddress;
+        _selector.onDisConnected(_remoteAddress);
+    }
 
 private:
 
-    Selector  _selector;
-    Fiber     _readTask;
+    Selector        _selector;
+    Queue!(ubyte[]) _writeQueue;
 
-    bool      _terming = false;
+    Fiber           _onRead;
+    Fiber           _onWrite;
+
+    string          _remoteAddress;
+    bool            _terming = false;
 }

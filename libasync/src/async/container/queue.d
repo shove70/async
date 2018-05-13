@@ -1,37 +1,43 @@
 module async.container.queue;
 
-import std.container.slist;
-import std.exception;
 import core.sync.mutex;
+
+import std.container.slist;
 
 class Queue(T)
 {
     this()
     {
-        lock = new Mutex;
+        _lock = new Mutex;
     }
 
     @property bool empty() const
     {
-        return data.empty();
+        return _data.empty();
+    }
+
+    @property ref T front()
+    {
+        synchronized (_lock)
+        {
+            return _data.front();
+        }
     }
 
     void push(T value)
     {
-        synchronized (lock)
+        synchronized (_lock)
         {
-            data.insertAfter(data[], value);
+            _data.insertAfter(_data[], value);
         }
     }
 
     T pop()
     {
-        synchronized (lock)
+        synchronized (_lock)
         {
-            enforce(!empty);
-
-            T value = data.front();
-            data.removeFront();
+            T value = _data.front();
+            _data.removeFront();
 
             return value;
         }
@@ -39,14 +45,32 @@ class Queue(T)
 
     void clear()
     {
-        synchronized (lock)
+        synchronized (_lock)
         {
-            data.clear();
+            _data.clear();
         }
+    }
+
+    void reverse()
+    {
+        synchronized (_lock)
+        {
+            _data.reverse();
+        }
+    }
+
+    void lock()
+    {
+        _lock.lock();
+    }
+
+    void unlock()
+    {
+        _lock.unlock();
     }
 
 private:
 
-    SList!T data;
-    Mutex   lock;
+    SList!T _data;
+    Mutex   _lock;
 }
