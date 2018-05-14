@@ -104,12 +104,12 @@ class TcpClient : TcpStream
         final switch (et)
         {
         case EventType.READ:
-            _onRead.call();
+            if (_onRead !is null && _onRead.state != Fiber.State.TERM) _onRead.call();
             break;
         case EventType.WRITE:
             if (!_writeQueue.empty() || (_lastWriteOffset > 0))
             {
-                _onWrite.call();
+                if (_writeQueue !is null && _onWrite.state != Fiber.State.TERM) _onWrite.call();
             }
             break;
         case EventType.ACCEPT:
@@ -145,20 +145,20 @@ class TcpClient : TcpStream
                 }
                 else
                 {
-                	if (errno == EINTR)
-                	{
-                		continue;
-                	}
-        	        else if (errno == EAGAIN || errno == EWOULDBLOCK)
-        	        {
-        	            break;
-        	        }
-        	        else
-        	        {
+                    if (errno == EINTR)
+                    {
+                        continue;
+                    }
+                    else if (errno == EAGAIN || errno == EWOULDBLOCK)
+                    {
+                        break;
+                    }
+                    else
+                    {
                         data = null;
 
-        	            break;
-        	        }
+                        break;
+                    }
                 }
             }
 
@@ -277,10 +277,65 @@ class TcpClient : TcpStream
             return -2;
         }
 
-        _writeQueue.push(cast(ubyte[])data);
+        _writeQueue.push(data);
         _selector.reregister(fd, EventType.READWRITE);
 
         return 0;
+    }
+
+    long send_withoutEventloop(in ubyte[] data)
+    {
+        if ((data.length == 0) || !_selector.runing || _terming || !_socket.isAlive())
+        {
+            return 0;
+        }
+
+        long sent = 0;
+
+        while (_selector.runing && !_terming && isAlive && (sent < data.length))
+        {
+            long len = _socket.send(data[cast(uint)sent .. $]);
+
+            if (len > 0)
+            {
+                sent += len;
+
+                continue;
+            }
+            else if (len == 0)
+            {
+                break;
+            }
+            else
+            {
+                if (errno == EINTR)
+                {
+                    continue;
+                }
+                else if (errno == EAGAIN || errno == EWOULDBLOCK)
+                {
+                    Thread.sleep(100.msecs);
+
+                    continue;
+                }
+                else
+                {
+                    break;
+                }
+            }
+        }
+
+        if (_selector.onSendCompleted !is null)
+        {
+            _selector.onSendCompleted(_fd, _remoteAddress, data, cast(size_t)sent);
+        }
+
+        if (sent != data.length)
+        {
+            debug writefln("The sending is incomplete, the total length is %d, but actually sent only %d.", data.length, sent);
+        }
+
+        return sent;
     }
 
     void close(int errno = 0)
