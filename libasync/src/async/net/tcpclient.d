@@ -96,6 +96,11 @@ class TcpClient : TcpStream
 
     void weakup(EventType et)
     {
+        if (!_selector.runing || _terming)
+        {
+            return;
+        }
+
         final switch (et)
         {
         case EventType.READ:
@@ -274,7 +279,7 @@ class TcpClient : TcpStream
 
         _writeQueue.push(cast(ubyte[])data);
         _selector.reregister(fd, EventType.READWRITE);
-
+_onWrite.call();
         return 0;
     }
 

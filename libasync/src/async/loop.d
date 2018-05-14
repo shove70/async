@@ -76,7 +76,7 @@ class Loop : LoopSelector
                 while (true)
                 {
                     Thread.sleep(1.seconds);
-                    writefln("_clients: %d, socket_counter: %d, fiber_read_counter: %d, fiber_write_counter: %d.", _clients.length(), TcpClient.socket_counter, TcpClient.fiber_read_counter, TcpClient.fiber_write_counter);
+                    writefln("Current: _clients: %d, socket: %d, fiber_read: %d, fiber_write: %d.", _clients.length(), TcpClient.socket_counter, TcpClient.fiber_read_counter, TcpClient.fiber_write_counter);
                 }
             }).start();
         }

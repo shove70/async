@@ -15,6 +15,7 @@ import core.sync.mutex;
 import core.thread;
 
 import std.socket;
+import std.concurrency;
 
 import async.event.selector;
 import async.net.tcpstream;
@@ -232,11 +233,16 @@ class Epoll : Selector
         if (client !is null)
         {
             _clients.remove(fd);
-            new Thread( { client.termTask(); }).start();
+            spawn(&_termClientTask, cast(shared TcpClient)client);
         }
     }
 
 private:
 
     int _epollFd;
+
+    static void _termClientTask(shared TcpClient client)
+    {
+        (cast(TcpClient)client).termTask();
+    }
 }
