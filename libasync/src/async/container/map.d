@@ -4,6 +4,7 @@ import core.sync.mutex;
 
 import std.exception;
 import std.typecons;
+import std.traits : isArray;
 
 class Map(TKey, TValue)
 {
@@ -33,7 +34,14 @@ class Map(TKey, TValue)
         {
             if (key !in _data)
             {
-                return null;
+                static if (isArray!TValue)
+                {
+                    _data[key] = [];
+                }
+                else
+                {
+                    return null;
+                }
             }
 
             return _data[key];
@@ -111,6 +119,15 @@ class Map(TKey, TValue)
 	{
 	    return _data.values;
 	}
+
+    bool exists(TKey key)
+    {
+        if (key in _data)
+        {
+            return true;
+        }
+        return false;
+    }
 
 	void remove(TKey key)
 	{
