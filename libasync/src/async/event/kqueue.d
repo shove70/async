@@ -89,43 +89,6 @@ class Kqueue : Selector
         dispose();
     }
 
-//    override bool register(int fd, EventType et)
-//    {
-//        if (fd < 0)
-//        {
-//            return false;
-//        }
-//
-//        int error = -1;
-//        kevent_t[2] ev = void;
-//        short  readFilter  = EV_ADD | EV_ENABLE;
-//        short  writeFilter = EV_ADD | EV_ENABLE;
-//
-//        if (et != EventType.ACCEPT)
-//        {
-//            readFilter  |= EV_CLEAR;
-//            writeFilter |= EV_CLEAR;
-//        }
-//
-//        EV_SET(&(ev[0]), fd, EVFILT_READ,  readFilter,  0, 0, null);
-//        EV_SET(&(ev[1]), fd, EVFILT_WRITE, writeFilter, 0, 0, null);
-//
-//        if (et == EventType.READWRITE)
-//        {
-//            error = kevent(_kqueueFd, &(ev[0]), 2, null, 0, null);
-//        }
-//        else if ((et == EventType.ACCEPT) || (et == EventType.READ))
-//        {
-//            error = kevent(_kqueueFd, &(ev[0]), 1, null, 0, null);
-//        }
-//        else if (et == EventType.WRITE)
-//        {
-//            error = kevent(_kqueueFd, &(ev[1]), 1, null, 0, null);
-//        }
-//
-//        return (error >= 0);
-//    }
-
     override bool register(int fd, EventType et)
     {
         kevent_t[2] ev = void;
@@ -236,7 +199,7 @@ class Kqueue : Selector
                     _onConnected(client);
                 }
             }
-            else if (events[i].filter & EVFILT_READ)
+            else if (events[i].filter == EVFILT_READ)
             {
                 TcpClient client = _clients[fd];
 
@@ -245,8 +208,8 @@ class Kqueue : Selector
                     client.weakup(EventType.READ);
                 }
             }
-            else if (events[i].filter & EVFILT_WRITE)
-            {writeln(fd, "------------------22--Pre Write");
+            else if (events[i].filter == EVFILT_WRITE)
+            {
                 TcpClient client = _clients[fd];
 
                 if (client !is null)

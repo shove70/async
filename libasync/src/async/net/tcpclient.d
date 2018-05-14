@@ -35,7 +35,7 @@ class TcpClient : TcpStream
 
         _remoteAddress = remoteAddress.toString();
         _fd            = fd;
-        
+
         debug
         {
             fiber_read_counter++;
@@ -279,7 +279,7 @@ class TcpClient : TcpStream
 
         _writeQueue.push(cast(ubyte[])data);
         _selector.reregister(fd, EventType.READWRITE);
-_onWrite.call();
+
         return 0;
     }
 
