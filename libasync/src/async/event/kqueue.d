@@ -268,8 +268,8 @@ writeln(fd, ", ", events[i].flags, ", ", events[i].filter);
                     TcpClient client = _clients[fd];
                     if (client !is null)
                     {
-                        removeClient(fd);
                         client.close();
+                        removeClient(fd);
                     }
                     debug writeln("close event: ", fd);
                 }

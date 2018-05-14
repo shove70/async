@@ -123,8 +123,8 @@ class TcpClient : TcpStream
                 }
                 else if (len == 0)
                 {
-                    _selector.removeClient(fd);
                     close();
+                    _selector.removeClient(fd);
                     data = null;
 
                     break;
@@ -186,8 +186,8 @@ class TcpClient : TcpStream
                     }
                     else if (len == 0)
                     {
-                        //_selector.removeClient(fd);
                         //close();
+                        //_selector.removeClient(fd);
 
                         if (_lastWriteOffset < _writingData.length)
                         {
