@@ -70,12 +70,13 @@ class Loop : LoopSelector
         debug
         {
             import core.thread;
+            import async.net.tcpclient;
             new Thread(
             {
-                while (1)
+                while (true)
                 {
-                    writefln("clients: %d", _clients.length);
                     Thread.sleep(1.seconds);
+                    writefln("_clients: %d, socket_counter: %d, fiber_read_counter: %d, fiber_write_counter: %d.", _clients.length(), TcpClient.socket_counter, TcpClient.fiber_read_counter, TcpClient.fiber_write_counter);
                 }
             }).start();
         }

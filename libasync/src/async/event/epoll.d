@@ -12,6 +12,8 @@ import core.sys.posix.netinet.in_;
 import core.sys.posix.unistd;
 import core.sys.posix.time;
 import core.sync.mutex;
+import core.memory;
+import core.thread;
 
 import std.socket;
 
@@ -226,7 +228,13 @@ class Epoll : Selector
     override void removeClient(int fd)
     {
         deregister(fd);
-        _clients.remove(fd);
+
+        TcpClient client = _clients[fd];
+        if (client !is null)
+        {
+            _clients.remove(fd);
+            new Thread( { client.termTask(); GC.free(&client); }).start();
+        }
     }
 
 private:

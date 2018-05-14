@@ -16,6 +16,13 @@ import async.container.queue;
 
 class TcpClient : TcpStream
 {
+    debug
+    {
+        __gshared int fiber_read_counter = 0;
+        __gshared int fiber_write_counter = 0;
+        __gshared int socket_counter = 0;
+    }
+
     this(Selector selector, Socket socket)
     {
         super(socket);
@@ -28,6 +35,54 @@ class TcpClient : TcpStream
 
         _remoteAddress = remoteAddress.toString();
         _fd            = fd;
+        
+        debug
+        {
+            fiber_read_counter++;
+            fiber_write_counter++;
+            socket_counter++;
+        }
+    }
+
+    ~this()
+    {
+        debug writeln("client dispose end.");
+    }
+
+    void termTask()
+    {
+        debug writeln("client dispose begin.");
+        _terming = true;
+
+        if (_onRead.state != Fiber.State.TERM)
+        {
+            while (_onRead.state != Fiber.State.HOLD)
+            {
+                Thread.sleep(50.msecs);
+            }
+
+            _onRead.call();
+
+            while (_onRead.state != Fiber.State.TERM)
+            {
+                Thread.sleep(0.msecs);
+            }
+        }
+
+        if (_onWrite.state != Fiber.State.TERM)
+        {
+            while (_onWrite.state != Fiber.State.HOLD)
+            {
+                Thread.sleep(50.msecs);
+            }
+
+            _onWrite.call();
+
+            while (_onWrite.state != Fiber.State.TERM)
+            {
+                Thread.sleep(0.msecs);
+            }
+        }
     }
 
     void weakup(EventType et)
@@ -49,55 +104,14 @@ class TcpClient : TcpStream
         }
     }
 
-    void termTask()
-    {
-        _terming = true;
-
-        new Thread(
-        {
-            if (_onRead.state != Fiber.State.TERM)
-            {
-                while (_onRead.state != Fiber.State.HOLD)
-                {
-                    Thread.sleep(50.msecs);
-                }
-
-                weakup(EventType.READ);
-
-                while (_onRead.state != Fiber.State.TERM)
-                {
-                    Thread.sleep(0.msecs);
-                }
-            }
-        }).start();
-
-        new Thread(
-        {
-            if (_onWrite.state != Fiber.State.TERM)
-            {
-                while (_onWrite.state != Fiber.State.HOLD)
-                {
-                    Thread.sleep(50.msecs);
-                }
-
-                weakup(EventType.WRITE);
-
-                while (_onWrite.state != Fiber.State.TERM)
-                {
-                    Thread.sleep(0.msecs);
-                }
-            }
-        }).start();
-    }
-
     private void read()
     {
-        while (_selector.runing && !_terming)
+        while (_selector.runing && !_terming && isAlive)
         {
             ubyte[]     data;
             ubyte[4096] buffer;
 
-            while (_selector.runing && !_terming)
+            while (_selector.runing && !_terming && isAlive)
             {
                 long len = _socket.receive(buffer);
 
@@ -141,13 +155,18 @@ class TcpClient : TcpStream
 
             Fiber.yield();
         }
+
+        debug
+        {
+            fiber_read_counter--;
+        }
     }
 
     private void write()
     {
-        while (_selector.runing && !_terming)
+        while (_selector.runing && !_terming && isAlive)
         {
-            while (_selector.runing && !_terming && (!_writeQueue.empty() || (_lastWriteOffset > 0)))
+            while (_selector.runing && !_terming && isAlive && (!_writeQueue.empty() || (_lastWriteOffset > 0)))
             {
                 if (_writingData.length == 0)
                 {
@@ -155,7 +174,7 @@ class TcpClient : TcpStream
                     _lastWriteOffset = 0;
                 }
 
-                while (_lastWriteOffset < _writingData.length)
+                while (_selector.runing && !_terming && isAlive && (_lastWriteOffset < _writingData.length))
                 {
                     long len = _socket.send(_writingData[cast(uint)_lastWriteOffset .. $]);
 
@@ -167,8 +186,8 @@ class TcpClient : TcpStream
                     }
                     else if (len == 0)
                     {
-                        _selector.removeClient(fd);
-                        close();
+                        //_selector.removeClient(fd);
+                        //close();
 
                         if (_lastWriteOffset < _writingData.length)
                         {
@@ -183,7 +202,7 @@ class TcpClient : TcpStream
                         _writingData.length = 0;
                         _lastWriteOffset    = 0;
 
-                        goto yield;
+                        goto yield; // sending is break and incomplete.
                     }
                     else
                     {
@@ -225,6 +244,11 @@ class TcpClient : TcpStream
         yield:
             Fiber.yield();
         }
+
+        debug
+        {
+            fiber_write_counter--;
+        }
     }
 
     int send(ubyte[] data)
@@ -247,10 +271,13 @@ class TcpClient : TcpStream
 
     void close(int errno = 0)
     {
-        termTask();
-
         _socket.shutdown(SocketShutdown.BOTH);
         _socket.close();
+
+        debug
+        {
+            socket_counter--;
+        }
 
         if ((errno != 0) && (_selector.onSocketError !is null))
         {

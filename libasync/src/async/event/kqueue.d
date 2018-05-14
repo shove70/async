@@ -53,6 +53,8 @@ import core.sys.posix.netinet.in_;
 import core.sys.posix.unistd;
 import core.sys.posix.time;
 import core.sync.mutex;
+import core.memory;
+import core.thread;
 
 import std.socket;
 
@@ -204,13 +206,13 @@ class Kqueue : Selector
 //    }
 
     override bool reregister(int fd, EventType et)
-    {
-        if (fd < 0)
-        {
-            return false;
-        }
-deregister(fd);
-return register(fd, et);
+    {return true;
+//        if (fd < 0)
+//        {
+//            return false;
+//        }
+//deregister(fd);
+//return register(fd, et);
         //return true;//register(fd, et);
     }
 
@@ -343,7 +345,13 @@ writeln(fd, ", ", events[i].flags, ", ", events[i].filter);
     override void removeClient(int fd)
     {
         deregister(fd);
-        _clients.remove(fd);
+
+        TcpClient client = _clients[fd];
+        if (client !is null)
+        {
+            _clients.remove(fd);
+            new Thread( { client.termTask(); GC.free(&client); }).start();
+        }
     }
 
 private:
