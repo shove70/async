@@ -350,7 +350,7 @@ writeln(fd, ", ", events[i].flags, ", ", events[i].filter);
         if (client !is null)
         {
             _clients.remove(fd);
-            new Thread( { client.termTask(); GC.free(&client); }).start();
+            new Thread( { client.termTask(); }).start();
         }
     }
 
