@@ -46,6 +46,11 @@ class TcpClient : TcpStream
 
     ~this()
     {
+        if (isAlive)
+        {
+            close();
+        }
+
         debug writeln("client dispose end.");
     }
 
@@ -123,8 +128,8 @@ class TcpClient : TcpStream
                 }
                 else if (len == 0)
                 {
-                    close();
                     _selector.removeClient(fd);
+                    close();
                     data = null;
 
                     break;
@@ -186,8 +191,8 @@ class TcpClient : TcpStream
                     }
                     else if (len == 0)
                     {
-                        //close();
                         //_selector.removeClient(fd);
+                        //close();
 
                         if (_lastWriteOffset < _writingData.length)
                         {

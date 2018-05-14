@@ -151,8 +151,8 @@ class Epoll : Selector
                     TcpClient client = _clients[fd];
                     if (client !is null)
                     {
-                        client.close();
                         removeClient(fd);
+                        client.close();
                     }
                     debug writeln("close event: ", fd);
                 }

@@ -165,8 +165,8 @@ class Iocp : Selector
 
             if (client !is null)
             {
-                client.close();
                 removeClient(ev.fd);
+                client.close();
             }
 
             debug writeln("close event: ", ev.fd);
