@@ -8,7 +8,7 @@ import async;
 void main()
 {
     TcpListener listener = new TcpListener();
-    listener.bind(new InternetAddress("127.0.0.1", 12290));
+    listener.bind(new InternetAddress("0.0.0.0", 12290));
     listener.listen(10);
 
     Loop loop = new Loop(listener, &onConnected, &onDisConnected, &onReceive, &onSendCompleted, &onSocketError);
@@ -17,6 +17,7 @@ void main()
 
 void onConnected(TcpClient client)
 {
+    queue[client.fd] = [];
     writeln("New connection: ", client.remoteAddress().toString());
 }
 
@@ -29,6 +30,11 @@ void onDisConnected(int fd, string remoteAddress)
 void onReceive(TcpClient client, in ubyte[] data)
 {
 //    writefln("Receive from %s: %d", client.remoteAddress().toString(), data.length);
+
+    if (client.fd !in queue)
+    {
+        return;
+    }
 
     queue[client.fd] ~= data;
 
