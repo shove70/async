@@ -95,40 +95,144 @@ class Kqueue : Selector
 
     override bool register(int fd, EventType et)
     {
-        kevent_t ev;
-        short  filter = 0;
-        ushort flags  = EV_ADD | EV_ENABLE;
-        
+        if (fd < 0)
+        {
+            return false;
+        }
+
+        int error = -1;
+        kevent_t[2] ev = void;
+        short  readFilter  = EV_ADD | EV_ENABLE;
+        short  writeFilter = EV_ADD | EV_ENABLE;
+
         if (et != EventType.ACCEPT)
         {
-            flags |= EV_CLEAR;
+            readFilter  |= EV_CLEAR;
+            writeFilter |= EV_CLEAR;
         }
 
-        if (et == EventType.ACCEPT || et == EventType.READ || et == EventType.READWRITE)
+        EV_SET(&(ev[0]), fd, EVFILT_READ,  readFilter,  0, 0, null);
+        EV_SET(&(ev[1]), fd, EVFILT_WRITE, writeFilter, 0, 0, null);
+
+        if (et == EventType.READWRITE)
         {
-            filter |= EVFILT_READ;
+            error = kevent(_kqueueFd, &(ev[0]), 2, null, 0, null);
         }
-        if (et == EventType.WRITE || et == EventType.READWRITE)
+        else if ((et == EventType.ACCEPT) || (et == EventType.READ))
         {
-            filter |= EVFILT_WRITE;
+            error = kevent(_kqueueFd, &(ev[0]), 1, null, 0, null);
+        }
+        else if (et == EventType.WRITE)
+        {
+            error = kevent(_kqueueFd, &(ev[1]), 1, null, 0, null);
         }
 
-        EV_SET(&ev, fd, filter, flags, 0, 0, null);
-
-        return (kevent(_kqueueFd, &ev, 1, null, 0, null) >= 0);
+        return (error >= 0);
     }
+
+//    override bool register(int fd, EventType et)
+//    {
+//        kevent_t[2] ev = void;
+//        short  filter;
+//        ushort flags;
+//
+//        if (et == EventType.ACCEPT)
+//        {
+//            filter = EVFILT_READ;
+//            flags  = EV_ADD | EV_ENABLE;
+//            EV_SET(&(ev[0]), fd, filter, flags, 0, 0, null);
+//
+//            return (kevent(_kqueueFd, &(ev[0]), 1, null, 0, null) >= 0);
+//        }
+//        else
+//        {
+//            filter = EVFILT_READ;
+//            flags  = EV_ADD | EV_ENABLE | EV_CLEAR;
+//            EV_SET(&(ev[0]), fd, filter, flags, 0, 0, null);
+//
+//            filter = EVFILT_WRITE;
+//            flags  = EV_ADD | EV_CLEAR;
+//            flags |= (et == EventType.READ) ? EV_DISABLE : EV_ENABLE;
+//            EV_SET(&(ev[1]), fd, filter, flags, 0, 0, null);
+//
+//            return (kevent(_kqueueFd, &(ev[0]), 2, null, 0, null) >= 0);
+//        }
+//    }
+
+//    override bool register(int fd, EventType et)
+//    {
+//        kevent_t[2] ev = void;
+//        short  filter;
+//        ushort flags;
+//
+//        if (et == EventType.ACCEPT)
+//        {
+//            filter = EVFILT_READ;
+//            flags  = EV_ADD | EV_ENABLE;
+//            EV_SET(&(ev[0]), fd, filter, flags, 0, 0, null);
+//
+//            return (kevent(_kqueueFd, &(ev[0]), 1, null, 0, null) >= 0);
+//        }
+//        else if (et == EventType.READ)
+//        {
+//            filter = EVFILT_READ;
+//            flags  = EV_ADD | EV_ENABLE | EV_CLEAR;
+//            EV_SET(&(ev[0]), fd, filter, flags, 0, 0, null);
+//
+//            return (kevent(_kqueueFd, &(ev[0]), 1, null, 0, null) >= 0);
+//        }
+//        else if (et == EventType.WRITE)
+//        {
+//            filter = EVFILT_WRITE;
+//            flags  = EV_ADD | EV_ENABLE | EV_CLEAR;
+//            EV_SET(&(ev[0]), fd, filter, flags, 0, 0, null);
+//
+//            return (kevent(_kqueueFd, &(ev[0]), 1, null, 0, null) >= 0);
+//        }
+//        else
+//        {
+//            filter = EVFILT_READ;
+//            flags  = EV_ADD | EV_ENABLE | EV_CLEAR;
+//            EV_SET(&(ev[0]), fd, filter, flags, 0, 0, null);
+//
+//            filter = EVFILT_WRITE;
+//            flags  = EV_ADD | EV_ENABLE | EV_CLEAR;
+//            EV_SET(&(ev[1]), fd, filter, flags, 0, 0, null);
+//
+//            return (kevent(_kqueueFd, &(ev[0]), 2, null, 0, null) >= 0);
+//        }
+//    }
 
     override bool reregister(int fd, EventType et)
     {
-        return register(fd, et);
+        if (fd < 0)
+        {
+            return false;
+        }
+deregister(fd);
+return register(fd, et);
+        //return true;//register(fd, et);
     }
 
     override bool deregister(int fd)
     {
-        kevent_t ev;
-        EV_SET(&ev, fd, EVFILT_READ | EVFILT_WRITE, EV_DELETE, 0, 0, null);
+        if (fd < 0)
+        {
+            return false;
+        }
 
-        return (kevent(_kqueueFd, &ev, 1, null, 0, null) >= 0);
+        kevent_t[2] ev = void;
+        EV_SET(&(ev[0]), fd, EVFILT_READ,  EV_DELETE, 0, 0, null);
+        EV_SET(&(ev[1]), fd, EVFILT_WRITE, EV_DELETE, 0, 0, null);
+
+        if (fd == _listener.fd)
+        {
+            return (kevent(_kqueueFd, &(ev[0]), 1, null, 0, null) >= 0);
+        }
+        else
+        {
+            return (kevent(_kqueueFd, &(ev[0]), 2, null, 0, null) >= 0);
+        }
     }
 
     override void startLoop()
@@ -150,7 +254,7 @@ class Kqueue : Selector
         foreach (i; 0 .. len)
         {
             auto fd = cast(int)events[i].ident;
-
+writeln(fd, ", ", events[i].flags, ", ", events[i].filter);
             if ((events[i].flags & EV_EOF) || (events[i].flags & EV_ERROR))
             {
                 if (fd == _listener.fd)
@@ -173,8 +277,8 @@ class Kqueue : Selector
             if (fd == _listener.fd)
             {
                 TcpClient client = new TcpClient(this, _listener.accept());
-                register(client.fd, EventType.READ);
                 _clients[client.fd] = client;
+                register(client.fd, EventType.READ);
 
                 if (_onConnected !is null)
                 {
@@ -191,7 +295,7 @@ class Kqueue : Selector
                 }
             }
             else if (events[i].filter & EVFILT_WRITE)
-            {
+            {writeln(fd, "------------------22--Pre Write");
                 TcpClient client = _clients[fd];
 
                 if (client !is null)

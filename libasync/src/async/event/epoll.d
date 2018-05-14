@@ -49,6 +49,11 @@ class Epoll : Selector
 
     override bool register(int fd, EventType et)
     {
+        if (fd < 0)
+        {
+            return false;
+        }
+
         epoll_event ev;
         ev.events  = EPOLLHUP | EPOLLERR;
         ev.data.fd = fd;
@@ -61,7 +66,7 @@ class Epoll : Selector
         {
             ev.events |= EPOLLIN;
         }
-        if (et == EventType.WRITE || et == EventType.READWRITE)
+        if ((et == EventType.WRITE) || (et == EventType.READWRITE))
         {
             ev.events |= EPOLLOUT;
         }
@@ -79,6 +84,11 @@ class Epoll : Selector
 
     override bool reregister(int fd, EventType et)
     {
+        if (fd < 0)
+        {
+            return false;
+        }
+
         epoll_event ev;
         ev.events  = EPOLLHUP | EPOLLERR;
         ev.data.fd = fd;
@@ -91,7 +101,7 @@ class Epoll : Selector
         {
             ev.events |= EPOLLIN;
         }
-        if (et == EventType.WRITE || et == EventType.READWRITE)
+        if ((et == EventType.WRITE) || (et == EventType.READWRITE))
         {
             ev.events |= EPOLLOUT;
         }
@@ -101,6 +111,11 @@ class Epoll : Selector
 
     override bool deregister(int fd)
     {
+        if (fd < 0)
+        {
+            return false;
+        }
+
         return (epoll_ctl(_epollFd, EPOLL_CTL_DEL, fd, null) == 0);
     }
 
@@ -145,8 +160,8 @@ class Epoll : Selector
             if (fd == _listener.fd)
             {
                 TcpClient client = new TcpClient(this, _listener.accept());
-                register(client.fd, EventType.READ);
                 _clients[client.fd] = client;
+                register(client.fd, EventType.READ);
 
                 if (_onConnected !is null)
                 {

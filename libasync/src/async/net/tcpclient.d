@@ -34,18 +34,18 @@ class TcpClient : TcpStream
     {
         final switch (et)
         {
-            case EventType.READ:
-                _onRead.call();
-                break;
-            case EventType.WRITE:
-                if (!_writeQueue.empty() || (_lastWriteOffset > 0))
-                {
-                    _onWrite.call();
-                }
-                break;
-            case EventType.ACCEPT:
-            case EventType.READWRITE:
-                break;
+        case EventType.READ:
+            _onRead.call();
+            break;
+        case EventType.WRITE:
+            if (!_writeQueue.empty() || (_lastWriteOffset > 0))
+            {
+                _onWrite.call();
+            }
+            break;
+        case EventType.ACCEPT:
+        case EventType.READWRITE:
+            break;
         }
     }
 

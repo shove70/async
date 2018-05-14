@@ -58,17 +58,32 @@ class Iocp : Selector
 
     override bool register(int fd, EventType et)
     {
+        if (fd < 0)
+        {
+            return false;
+        }
+
         CreateIoCompletionPort(cast(HANDLE)fd, _handle, 0, 0);
         return true;
     }
 
     override bool reregister(int fd, EventType et)
     {
-       return true;
+        if (fd < 0)
+        {
+            return false;
+        }
+
+        return true;
     }
 
     override bool deregister(int fd)
     {
+        if (fd < 0)
+        {
+            return false;
+        }
+
         return true;
     }
 
