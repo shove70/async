@@ -6,7 +6,6 @@ version (Windows):
 
 import core.sys.windows.windows;
 import core.sync.mutex;
-import core.memory;
 import core.thread;
 
 import std.socket;

@@ -46,9 +46,13 @@ class TcpClient : TcpStream
 
     ~this()
     {
-        if (isAlive)
+        while (_onRead.state != Fiber.State.TERM)
         {
-            close();
+            Thread.sleep(0.msecs);
+        }
+        while (_onWrite.state != Fiber.State.TERM)
+        {
+            Thread.sleep(0.msecs);
         }
 
         debug writeln("client dispose end.");
@@ -56,7 +60,6 @@ class TcpClient : TcpStream
 
     void termTask()
     {
-        debug writeln("client dispose begin.");
         _terming = true;
 
         if (_onRead.state != Fiber.State.TERM)
@@ -88,6 +91,7 @@ class TcpClient : TcpStream
                 Thread.sleep(0.msecs);
             }
         }
+        debug writeln("termTask dispose end.");
     }
 
     void weakup(EventType et)

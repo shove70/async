@@ -1,6 +1,7 @@
 module async.net.tcpstream;
 
 import std.socket;
+import std.datetime;
 
 abstract class TcpStream
 {
@@ -70,6 +71,26 @@ abstract class TcpStream
     @property bool isAlive()
     {
         return _socket.isAlive();
+    }
+
+    void setOption(SocketOptionLevel level, SocketOption option, void[] value) @trusted
+    {
+        _socket.setOption(level, option, value);
+    }
+
+    void setOption(SocketOptionLevel level, SocketOption option, int32_t value) @trusted
+    {
+        _socket.setOption(level, option, value);
+    }
+
+    void setOption(SocketOptionLevel level, SocketOption option, Linger value) @trusted
+    {
+        _socket.setOption(level, option, value);
+    }
+
+    void setOption(SocketOptionLevel level, SocketOption option, Duration value) @trusted
+    {
+        _socket.setOption(level, option, value);
     }
 
 protected:

@@ -53,7 +53,6 @@ import core.sys.posix.netinet.in_;
 import core.sys.posix.unistd;
 import core.sys.posix.time;
 import core.sync.mutex;
-import core.memory;
 import core.thread;
 
 import std.socket;
