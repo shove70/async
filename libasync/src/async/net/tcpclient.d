@@ -2,9 +2,9 @@ module async.net.tcpclient;
 
 debug import std.stdio;
 
-import core.thread;
 import core.stdc.errno;
 import core.stdc.string;
+import core.thread;
 
 import std.socket;
 import std.conv;
@@ -13,6 +13,7 @@ import std.string;
 import async.event.selector;
 import async.net.tcpstream;
 import async.container.queue;
+import async.utils.fiber;
 
 class TcpClient : TcpStream
 {
@@ -27,11 +28,11 @@ class TcpClient : TcpStream
     {
         super(socket);
 
-        _selector   = selector;
-        _writeQueue = new Queue!(ubyte[])();
+        _selector      = selector;
+        _writeQueue    = new Queue!(ubyte[])();
 
-        _onRead     = new Fiber(&read);
-        _onWrite    = new Fiber(&write);
+        _onRead        = new SyncFiber(&read);
+        _onWrite       = new SyncFiber(&write);
 
         _remoteAddress = remoteAddress.toString();
         _fd            = fd;
@@ -104,12 +105,12 @@ class TcpClient : TcpStream
         final switch (et)
         {
         case EventType.READ:
-            if (_onRead !is null && _onRead.state != Fiber.State.TERM) _onRead.call();
+            _onRead.call();
             break;
         case EventType.WRITE:
             if (!_writeQueue.empty() || (_lastWriteOffset > 0))
             {
-                if (_writeQueue !is null && _onWrite.state != Fiber.State.TERM) _onWrite.call();
+                _onWrite.call();
             }
             break;
         case EventType.ACCEPT:
@@ -366,8 +367,8 @@ private:
     ubyte[]         _writingData;
     size_t          _lastWriteOffset;
 
-    Fiber           _onRead;
-    Fiber           _onWrite;
+    SyncFiber       _onRead;
+    SyncFiber       _onWrite;
 
     string          _remoteAddress;
     int             _fd;

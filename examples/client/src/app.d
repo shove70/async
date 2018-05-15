@@ -29,7 +29,7 @@ private void go(ubyte[] data)
     {
         TcpSocket socket = new TcpSocket();
         socket.blocking = true;
-        socket.connect(new InternetAddress("192.168.0.111", 12290));
+        socket.connect(new InternetAddress("127.0.0.1", 12290));
 
         long len;
         for (size_t off; off < data.length; off += len) {
