@@ -1,4 +1,4 @@
-module async.loop;
+module async.eventloop;
 
 import std.stdio;
 import std.socket;
@@ -52,7 +52,7 @@ else
     static assert(false, "Unsupported platform.");
 }
 
-class Loop : LoopSelector
+class EventLoop : LoopSelector
 {
     this(TcpListener listener, OnConnected onConnected, OnDisConnected onDisConnected, OnReceive onReceive, OnSendCompleted onSendCompleted, OnSocketError onSocketError)
     {

@@ -5,20 +5,20 @@ import core.thread;
 
 import async;
 
-Loop onCreateServer()
+EventLoop onCreateServer()
 {
     TcpListener listener = new TcpListener();
     listener.bind(new InternetAddress("0.0.0.0", 12290));
     listener.listen(10);
 
-    Loop loop = new Loop(listener, &onConnected, &onDisConnected, &onReceive, &onSendCompleted, &onSocketError);
+    EventLoop loop = new EventLoop(listener, &onConnected, &onDisConnected, &onReceive, &onSendCompleted, &onSocketError);
 
     return loop;
 }
 
 void main()
 {
-    LoopGroup group = new LoopGroup(&onCreateServer);
+    EventLoopGroup group = new EventLoopGroup(&onCreateServer);
     group.start();
 
     //group.stop();

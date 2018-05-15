@@ -1,4 +1,4 @@
-module async.loopgroup;
+module async.eventloopgroup;
 
 import core.thread;
 
@@ -6,11 +6,11 @@ import std.parallelism;
 import std.socket;
 
 import async.event.selector;
-import async.loop;
+import async.eventloop;
 
-alias OnCreateServer = Loop function();
+alias OnCreateServer = EventLoop function();
 
-class LoopGroup
+class EventLoopGroup
 {
     this(OnCreateServer onCreateServer, int size = totalCPUs - 1)
     {
@@ -20,8 +20,8 @@ class LoopGroup
 
         foreach (i; 0 .. size)
         {
-            Loop loop    = onCreateServer();
-            _loops[loop] = new Thread(&loop.run);
+            EventLoop loop = onCreateServer();
+            _loops[loop]   = new Thread(&loop.run);
         }
     }
 
@@ -66,8 +66,8 @@ class LoopGroup
 
 private:
 
-    Loop         _mainLoop;
-    Thread[Loop] _loops;
+    EventLoop         _mainLoop;
+    Thread[EventLoop] _loops;
 
-    bool         _started;
+    bool              _started;
 }
