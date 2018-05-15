@@ -314,7 +314,7 @@ class TcpClient : TcpStream
                 }
                 else if (errno == EAGAIN || errno == EWOULDBLOCK)
                 {
-                    Thread.sleep(100.msecs);
+                    Thread.sleep(50.msecs);
 
                     continue;
                 }
