@@ -173,7 +173,7 @@ class Kqueue : Selector
             {
                 if (fd == _listener.fd)
                 {
-                    debug writeln("listener event error.", fd);
+                    debug writeln("Listener event error.", fd);
                 }
                 else
                 {
@@ -183,7 +183,7 @@ class Kqueue : Selector
                         removeClient(fd);
                         client.close();
                     }
-                    debug writeln("close event: ", fd);
+                    debug writeln("Close event: ", fd);
                 }
                 continue;
             }

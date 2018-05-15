@@ -55,7 +55,7 @@ class TcpClient : TcpStream
             Thread.sleep(0.msecs);
         }
 
-        debug writeln("client dispose end.");
+        debug writeln("Client dispose end.");
     }
 
     void termTask()
@@ -91,7 +91,7 @@ class TcpClient : TcpStream
                 Thread.sleep(0.msecs);
             }
         }
-        debug writeln("termTask dispose end.");
+        debug writeln("TermTask dispose end.");
     }
 
     void weakup(EventType et)

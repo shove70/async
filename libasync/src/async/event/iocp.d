@@ -5,6 +5,8 @@ debug import std.stdio;
 version (Windows):
 
 import core.sys.windows.windows;
+import core.sys.windows.winsock2;
+import core.sys.windows.mswsock;
 import core.sync.mutex;
 import core.thread;
 
@@ -17,23 +19,6 @@ import async.net.tcpclient;
 import async.container.map;
 
 alias LoopSelector = Iocp;
-
-enum IocpOperation
-{
-    accept,
-    connect,
-    read,
-    write,
-    event,
-    close
-}
-
-struct IocpContext
-{
-    OVERLAPPED    overlapped;
-    IocpOperation operation;
-    int           fd;
-}
 
 class Iocp : Selector
 {
@@ -50,6 +35,8 @@ class Iocp : Selector
 
         _handle        = CreateIoCompletionPort(INVALID_HANDLE_VALUE, null, 0, 0);
         _listener      = listener;
+
+        register(_listener.fd, EventType.ACCEPT);
     }
 
     ~this()
@@ -64,8 +51,7 @@ class Iocp : Selector
             return false;
         }
 
-        CreateIoCompletionPort(cast(HANDLE)fd, _handle, 0, 0);
-        return true;
+        return (CreateIoCompletionPort(cast(HANDLE)fd, _handle, cast(size_t)(cast(void*)fd), 0) is _handle);
     }
 
     override bool reregister(int fd, EventType et)
@@ -94,16 +80,20 @@ class Iocp : Selector
 
         while (runing)
         {
+            Socket socket = _listener.accept();
+            TcpClient client = new TcpClient(this, socket);
+            register(client.fd, EventType.READ);
+            _clients[client.fd] = client;
             handleEvent();
         }
     }
 
     private void handleEvent()
     {
-        auto timeout  = 0;
-        OVERLAPPED*   overlapped;
-        ULONG_PTR key = 0;
         DWORD bytes   = 0;
+        ULONG_PTR key = 0;
+        OVERLAPPED*   overlapped;
+        auto timeout  = 1000;
 
         const int ret = GetQueuedCompletionStatus(_handle, &bytes, &key, &overlapped, timeout);
 
@@ -118,12 +108,19 @@ class Iocp : Selector
 
         if (overlapped is null)
         {
-            debug writeln("ev is null.");
+            debug writeln("Event is null.");
 
             return;
         }
 
-        auto ev = cast(IocpContext*) overlapped;
+        auto ev = cast(IocpContext*)overlapped;
+
+        if (ev is null || ev.fd <= 0)
+        {
+            debug writeln("Event is invalid.");
+            
+            return;
+        }
 
         switch (ev.operation)
         {
@@ -168,10 +165,10 @@ class Iocp : Selector
                 client.close();
             }
 
-            debug writeln("close event: ", ev.fd);
+            debug writeln("Close event: ", ev.fd);
             break;
         default:
-            debug writefln("unsupported operation type: ", ev.operation);
+            debug writefln("Unsupported operation type: ", ev.operation);
             break;
         }
     }
@@ -223,4 +220,21 @@ class Iocp : Selector
 private:
 
     HANDLE _handle;
+}
+
+enum IocpOperation
+{
+    accept,
+    connect,
+    read,
+    write,
+    event,
+    close
+}
+
+struct IocpContext
+{
+    OVERLAPPED    overlapped;
+    IocpOperation operation;
+    int           fd;
 }

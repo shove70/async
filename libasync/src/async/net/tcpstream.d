@@ -78,7 +78,7 @@ abstract class TcpStream
         _socket.setOption(level, option, value);
     }
 
-    void setOption(SocketOptionLevel level, SocketOption option, int32_t value) @trusted
+    void setOption(SocketOptionLevel level, SocketOption option, int value) @trusted
     {
         _socket.setOption(level, option, value);
     }
