@@ -80,10 +80,10 @@ class Iocp : Selector
 
         while (runing)
         {
-            Socket socket = _listener.accept();
-            TcpClient client = new TcpClient(this, socket);
-            register(client.fd, EventType.READ);
-            _clients[client.fd] = client;
+//            Socket socket = _listener.accept();
+//            TcpClient client = new TcpClient(this, socket);
+//            register(client.fd, EventType.READ);
+//            _clients[client.fd] = client;
             handleEvent();
         }
     }

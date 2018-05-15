@@ -133,7 +133,7 @@ class Epoll : Selector
     private void handleEvent()
     {
         epoll_event[64] events;
-        const int len = epoll_wait(_epollFd, events.ptr, events.length, 10);
+        const int len = epoll_wait(_epollFd, events.ptr, events.length, -1);
 
         foreach (i; 0 .. len)
         {

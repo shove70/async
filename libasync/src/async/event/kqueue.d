@@ -153,17 +153,17 @@ class Kqueue : Selector
     {
         runing = true;
 
-        auto tspec = timespec(1, 1000 * 10);
         while (runing)
         {
-            handleEvent(tspec);
+            handleEvent();
         }
     }
 
-    private void handleEvent(ref timespec tspec)
+    private void handleEvent()
     {
         kevent_t[64] events;
-        auto len = kevent(_kqueueFd, null, 0, events.ptr, events.length, &tspec);
+        //auto tspec = timespec(1, 1000 * 10);
+        auto len = kevent(_kqueueFd, null, 0, events.ptr, events.length, null);//&tspec);
 
         foreach (i; 0 .. len)
         {

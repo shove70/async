@@ -8,7 +8,7 @@ import async;
 Loop onCreateServer()
 {
     TcpListener listener = new TcpListener();
-    listener.bind(new InternetAddress("127.0.0.1", 12290));
+    listener.bind(new InternetAddress("0.0.0.0", 12290));
     listener.listen(10);
 
     Loop loop = new Loop(listener, &onConnected, &onDisConnected, &onReceive, &onSendCompleted, &onSocketError);
@@ -26,19 +26,38 @@ void main()
 
 void onConnected(TcpClient client)
 {
+    queue[client.fd] = [];
     writeln("New connection: ", client.remoteAddress().toString());
 }
 
 void onDisConnected(int fd, string remoteAddress)
 {
+    queue.remove(fd);
     writefln("\033[7mClient socket close: %s\033[0m", remoteAddress);
 }
 
 void onReceive(TcpClient client, in ubyte[] data)
 {
-    writefln("Receive from %s: %d", client.remoteAddress().toString(), data.length);
+//    writefln("Receive from %s: %d", client.remoteAddress().toString(), data.length);
 
-    client.send(cast(ubyte[])data); // echo
+    if (client.fd !in queue)
+    {
+        return;
+    }
+
+    queue[client.fd] ~= data;
+
+    size_t len = findCompleteMessage(queue[client.fd]);
+
+    if (len == 0)
+    {
+        return;
+    }
+
+    ubyte[] buffer   = queue[client.fd][0 .. len];
+    queue[client.fd] = queue[client.fd][len .. $];
+
+    client.send(buffer); // echo
 }
 
 void onSocketError(int fd, string remoteAddress, string msg)
@@ -56,4 +75,17 @@ void onSendCompleted(int fd, string remoteAddress, in ubyte[] data, size_t sent_
     {
         writefln("Sent to %s completed, Size: %d", remoteAddress, sent_size);
     }
+}
+
+__gshared int size = 10000000;
+__gshared ubyte[][int] queue;
+
+private size_t findCompleteMessage(in ubyte[] data)
+{
+    if (data.length < size)
+    {
+        return 0;
+    }
+
+    return size;
 }
