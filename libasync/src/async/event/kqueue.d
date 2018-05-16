@@ -4,15 +4,15 @@ debug import std.stdio;
 
 version (Posix)
 {
-	import core.sys.darwin.sys.event;
+    import core.sys.darwin.sys.event;
 }
 else version (FreeBSD)
 {
-	import core.sys.freebsd.sys.event;
+    import core.sys.freebsd.sys.event;
 }
 else version (DragonFlyBSD)
 {
-	import core.sys.dragonflybsd.sys.event;
+    import core.sys.dragonflybsd.sys.event;
 }
 
 version (OSX)

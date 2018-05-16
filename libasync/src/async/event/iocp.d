@@ -118,7 +118,7 @@ class Iocp : Selector
         if (ev is null || ev.fd <= 0)
         {
             debug writeln("Event is invalid.");
-            
+
             return;
         }
 

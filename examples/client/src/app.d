@@ -33,21 +33,21 @@ private void go(ubyte[] data)
 
         long len;
         for (size_t off; off < data.length; off += len) {
-			len = socket.send(data[off..$]);
-			if (len > 0)
-			{
-			    continue;
-			}
-			else if (len == 0)
-			{
-			    socket.close();
-			    writeln("Server socket close at send.");
-			    return;
-			}
-			else
-			{
-			    len = 0;
-			    if (errno == EINTR)
+            len = socket.send(data[off..$]);
+            if (len > 0)
+            {
+                continue;
+            }
+            else if (len == 0)
+            {
+                socket.close();
+                writeln("Server socket close at send.");
+                return;
+            }
+            else
+            {
+                len = 0;
+                if (errno == EINTR)
                 {
                     continue;
                 }
@@ -59,31 +59,31 @@ private void go(ubyte[] data)
                 else
                 {
                     socket.close();
-    			    writeln("Socket error at send.");
+                    writeln("Socket error at send.");
                     return;
                 }
-			}
-		}
+            }
+        }
 
-    	ubyte[] buffer = new ubyte[size];
-    	
-    	len = 0;
-    	for (size_t off; off < buffer.length; off += len) {
-			len = socket.receive(buffer[off..$]);
-    		if (len > 0)
-			{
-			    continue;
-			}
-			else if (len == 0)
-			{
-			    socket.close();
-			    writeln("Server socket close at receive.");
-			    return;
-			}
-			else
-			{
-			    len = 0;
-			    if (errno == EINTR)
+        ubyte[] buffer = new ubyte[size];
+
+        len = 0;
+        for (size_t off; off < buffer.length; off += len) {
+            len = socket.receive(buffer[off..$]);
+            if (len > 0)
+            {
+                continue;
+            }
+            else if (len == 0)
+            {
+                socket.close();
+                writeln("Server socket close at receive.");
+                return;
+            }
+            else
+            {
+                len = 0;
+                if (errno == EINTR)
                 {
                     continue;
                 }
@@ -95,14 +95,14 @@ private void go(ubyte[] data)
                 else
                 {
                     socket.close();
-    			    writeln("Socket error at receive.");
+                    writeln("Socket error at receive.");
                     return;
                 }
-			}
-    	}
+            }
+        }
 
-    	writeln("receive: ", "[0]: ", buffer[0], ", [$ - 1]: ", buffer[$ - 1]);
-    	socket.shutdown(SocketShutdown.BOTH);
-    	socket.close();
+        writeln("receive: ", "[0]: ", buffer[0], ", [$ - 1]: ", buffer[$ - 1]);
+        socket.shutdown(SocketShutdown.BOTH);
+        socket.close();
     }
 }

@@ -7,14 +7,12 @@ import async;
 
 void main()
 {
-    EventLoopGroup group = new EventLoopGroup(&createEventLoop);
+    EventLoopGroup group = new EventLoopGroup(&createEventLoop);  // Use the thread group, thread num: totalCPUs
     group.run();
 
     group.stop();
 
-    /*
-        Not use group:
-     */
+    // Not use group:
 
     //EventLoop loop = new createEventLoop();
     //loop.run();
@@ -28,9 +26,7 @@ EventLoop createEventLoop()
     listener.bind(new InternetAddress("0.0.0.0", 12290));
     listener.listen(10);
 
-    EventLoop loop = new EventLoop(listener, &onConnected, &onDisConnected, &onReceive, &onSendCompleted, &onSocketError);
-
-    return loop;
+    return new EventLoop(listener, &onConnected, &onDisConnected, &onReceive, &onSendCompleted, &onSocketError);
 }
 
 void onConnected(TcpClient client)

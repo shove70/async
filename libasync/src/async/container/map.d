@@ -25,12 +25,12 @@ class Map(TKey, TValue)
 
     @property size_t opDollar() const
     {
-		return _data.length;
-	}
+        return _data.length;
+    }
 
-	ref auto opIndex(TKey key)
+    ref auto opIndex(TKey key)
     {
-	    synchronized (_lock)
+        synchronized (_lock)
         {
             if (key !in _data)
             {
@@ -46,7 +46,7 @@ class Map(TKey, TValue)
 
             return _data[key];
         }
-	}
+    }
 
     void opIndexAssign(TValue value, TKey key)
     {
@@ -111,14 +111,14 @@ class Map(TKey, TValue)
     }
 
     @property TKey[] keys()
-	{
-	    return _data.keys;
-	}
+    {
+        return _data.keys;
+    }
 
-	@property TValue[] values()
-	{
-	    return _data.values;
-	}
+    @property TValue[] values()
+    {
+        return _data.values;
+    }
 
     bool exists(TKey key)
     {
@@ -129,13 +129,13 @@ class Map(TKey, TValue)
         return false;
     }
 
-	void remove(TKey key)
-	{
-	    synchronized (_lock)
+    void remove(TKey key)
+    {
+        synchronized (_lock)
         {
             _data.remove(key);
         }
-	}
+    }
 
     void clear()
     {
