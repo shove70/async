@@ -5,23 +5,25 @@ debug import std.stdio;
 import core.stdc.errno;
 import core.stdc.string;
 import core.thread;
+import core.sync.mutex;
 
 import std.socket;
 import std.conv;
 import std.string;
+import std.concurrency;
 
 import async.event.selector;
 import async.net.tcpstream;
 import async.container.queue;
-import async.utils.fiber;
 
 class TcpClient : TcpStream
 {
     debug
     {
-        __gshared int fiber_read_counter = 0;
-        __gshared int fiber_write_counter = 0;
-        __gshared int socket_counter = 0;
+        __gshared int thread_read_counter  = 0;
+        __gshared int thread_write_counter = 0;
+        __gshared int client_count         = 0;
+        __gshared int socket_counter       = 0;
     }
 
     this(Selector selector, Socket socket)
@@ -31,68 +33,79 @@ class TcpClient : TcpStream
         _selector      = selector;
         _writeQueue    = new Queue!(ubyte[])();
 
-        _onRead        = new SyncFiber(&read);
-        _onWrite       = new SyncFiber(&write);
+        _onRead        = spawn(&read,  cast(shared TcpClient)this);
+        _onWrite       = spawn(&write, cast(shared TcpClient)this);
+        _readLock      = new Mutex;
+        _writeLock     = new Mutex;
 
         _remoteAddress = remoteAddress.toString();
         _fd            = fd;
 
         debug
         {
-            fiber_read_counter++;
-            fiber_write_counter++;
+            thread_read_counter++;
+            thread_write_counter++;
+            client_count++;
             socket_counter++;
         }
     }
 
     ~this()
     {
-        while (_onRead.state != Fiber.State.TERM)
+        while (_readState != ThreadState.TERM)
         {
             Thread.sleep(0.msecs);
         }
-        while (_onWrite.state != Fiber.State.TERM)
+        while (_writeState != ThreadState.TERM)
         {
             Thread.sleep(0.msecs);
         }
 
-        debug writeln("Client dispose end.");
+        debug
+        {
+            writeln("Client dispose end.");
+        }
     }
 
     void termTask()
     {
         _terming = true;
 
-        if (_onRead.state != Fiber.State.TERM)
+        if (_readState != ThreadState.TERM)
         {
-            while (_onRead.state != Fiber.State.HOLD)
+            while (_readState != ThreadState.HOLD)
             {
                 Thread.sleep(50.msecs);
             }
 
-            _onRead.call();
+            call!"read"();
 
-            while (_onRead.state != Fiber.State.TERM)
+            while (_readState != ThreadState.TERM)
             {
                 Thread.sleep(0.msecs);
             }
         }
 
-        if (_onWrite.state != Fiber.State.TERM)
+        if (_writeState != ThreadState.TERM)
         {
-            while (_onWrite.state != Fiber.State.HOLD)
+            while (_writeState != ThreadState.HOLD)
             {
                 Thread.sleep(50.msecs);
             }
 
-            _onWrite.call();
+            call!"write"();
 
-            while (_onWrite.state != Fiber.State.TERM)
+            while (_writeState != ThreadState.TERM)
             {
                 Thread.sleep(0.msecs);
             }
         }
-        debug writeln("TermTask dispose end.");
+
+        debug
+        {
+            client_count--;
+            writeln("TermTask dispose end.");
+        }
     }
 
     void weakup(EventType et)
@@ -105,12 +118,12 @@ class TcpClient : TcpStream
         final switch (et)
         {
         case EventType.READ:
-            _onRead.call();
+            call!"read"();
             break;
         case EventType.WRITE:
             if (!_writeQueue.empty() || (_lastWriteOffset > 0))
             {
-                _onWrite.call();
+                call!"write"();
             }
             break;
         case EventType.ACCEPT:
@@ -119,16 +132,22 @@ class TcpClient : TcpStream
         }
     }
 
-    private void read()
+    private static void read(shared TcpClient _client)
     {
-        while (_selector.runing && !_terming && isAlive)
+        TcpClient client = cast(TcpClient)_client;
+
+        client._readState = ThreadState.HOLD;
+        receiveOnly!int();
+        client._readState = ThreadState.RUNNING;
+
+        while (client._selector.runing && !client._terming && client.isAlive)
         {
             ubyte[]     data;
             ubyte[4096] buffer;
 
-            while (_selector.runing && !_terming && isAlive)
+            while (client._selector.runing && !client._terming && client.isAlive)
             {
-                long len = _socket.receive(buffer);
+                long len = client._socket.receive(buffer);
 
                 if (len > 0)
                 {
@@ -138,8 +157,8 @@ class TcpClient : TcpStream
                 }
                 else if (len == 0)
                 {
-                    _selector.removeClient(fd);
-                    close();
+                    client._selector.removeClient(client.fd);
+                    client.close();
                     data = null;
 
                     break;
@@ -163,59 +182,69 @@ class TcpClient : TcpStream
                 }
             }
 
-            if ((data.length > 0) && (_selector.onReceive !is null))
+            if ((data.length > 0) && (client._selector.onReceive !is null))
             {
-                _selector.onReceive(this, data);
+                client._selector.onReceive(client, data);
             }
 
-            Fiber.yield();
+            client._readState = ThreadState.HOLD;
+            receiveOnly!int();
+            client._readState = ThreadState.RUNNING;
         }
 
         debug
         {
-            fiber_read_counter--;
+            client.thread_read_counter--;
         }
+
+        client._readState = ThreadState.TERM;
     }
 
-    private void write()
+    private static void write(shared TcpClient _client)
     {
-        while (_selector.runing && !_terming && isAlive)
+        TcpClient client = cast(TcpClient)_client;
+
+        client._writeState = ThreadState.HOLD;
+        receiveOnly!int();
+        client._writeState = ThreadState.RUNNING;
+
+        while (client._selector.runing && !client._terming && client.isAlive)
         {
-            while (_selector.runing && !_terming && isAlive && (!_writeQueue.empty() || (_lastWriteOffset > 0)))
+            while (client._selector.runing && !client._terming && client.isAlive && (!client._writeQueue.empty() || (client._lastWriteOffset > 0)))
             {
-                if (_writingData.length == 0)
+                if (client._writingData.length == 0)
                 {
-                    _writingData     = _writeQueue.pop();
-                    _lastWriteOffset = 0;
+                    client._writingData     = client._writeQueue.pop();
+                    client._lastWriteOffset = 0;
                 }
 
-                while (_selector.runing && !_terming && isAlive && (_lastWriteOffset < _writingData.length))
+                while (client._selector.runing && !client._terming && client.isAlive && (client._lastWriteOffset < client._writingData.length))
                 {
-                    long len = _socket.send(_writingData[cast(uint)_lastWriteOffset .. $]);
+                    long len = client._socket.send(client._writingData[cast(uint)client._lastWriteOffset .. $]);
 
                     if (len > 0)
                     {
-                        _lastWriteOffset += len;
+                        client._lastWriteOffset += len;
 
                         continue;
                     }
                     else if (len == 0)
                     {
-                        //_selector.removeClient(fd);
-                        //close();
+                        //client._selector.removeClient(fd);
+                        //client.close();
 
-                        if (_lastWriteOffset < _writingData.length)
+                        if (client._lastWriteOffset < client._writingData.length)
                         {
-                            if (_selector.onSendCompleted !is null)
+                            if (client._selector.onSendCompleted !is null)
                             {
-                                _selector.onSendCompleted(_fd, _remoteAddress, _writingData, cast(size_t)_lastWriteOffset);
+                                client._selector.onSendCompleted(client._fd, client._remoteAddress, client._writingData, cast(size_t)client._lastWriteOffset);
                             }
 
-                            debug writefln("The sending is incomplete, the total length is %d, but actually sent only %d.", _writingData.length, _lastWriteOffset);
+                            debug writefln("The sending is incomplete, the total length is %d, but actually sent only %d.", client._writingData.length, client._lastWriteOffset);
                         }
 
-                        _writingData.length = 0;
-                        _lastWriteOffset    = 0;
+                        client._writingData.length = 0;
+                        client._lastWriteOffset    = 0;
 
                         goto yield; // sending is break and incomplete.
                     }
@@ -231,39 +260,43 @@ class TcpClient : TcpStream
                         }
                         else
                         {
-                            _writingData.length = 0;
-                            _lastWriteOffset    = 0;
+                            client._writingData.length = 0;
+                            client._lastWriteOffset    = 0;
 
                             goto yield; // Some error.
                         }
                     }
                 }
 
-                if (_lastWriteOffset == _writingData.length)
+                if (client._lastWriteOffset == client._writingData.length)
                 {
-                    if (_selector.onSendCompleted !is null)
+                    if (client._selector.onSendCompleted !is null)
                     {
-                        _selector.onSendCompleted(_fd, _remoteAddress, _writingData, cast(size_t)_lastWriteOffset);
+                        client._selector.onSendCompleted(client._fd, client._remoteAddress, client._writingData, cast(size_t)client._lastWriteOffset);
                     }
 
-                    _writingData.length = 0;
-                    _lastWriteOffset    = 0;
+                    client._writingData.length = 0;
+                    client._lastWriteOffset    = 0;
                 }
             }
 
-            if (_writeQueue.empty() && (_writingData.length == 0))
+            if (client._writeQueue.empty() && (client._writingData.length == 0))
             {
-                _selector.reregister(fd, EventType.READ);
+                client._selector.reregister(client.fd, EventType.READ);
             }
 
         yield:
-            Fiber.yield();
+            client._writeState = ThreadState.HOLD;
+            receiveOnly!int();
+            client._writeState = ThreadState.RUNNING;
         }
 
         debug
         {
-            fiber_write_counter--;
+            client.thread_write_counter--;
         }
+
+        client._writeState = ThreadState.TERM;
     }
 
     int send(ubyte[] data)
@@ -362,15 +395,53 @@ class TcpClient : TcpStream
 
 private:
 
-    Selector        _selector;
-    Queue!(ubyte[]) _writeQueue;
-    ubyte[]         _writingData;
-    size_t          _lastWriteOffset;
+    Selector           _selector;
+    Queue!(ubyte[])    _writeQueue;
+    ubyte[]            _writingData;
+    size_t             _lastWriteOffset;
 
-    SyncFiber       _onRead;
-    SyncFiber       _onWrite;
+    Tid                _onRead;
+    Tid                _onWrite;
+     ThreadState _readState  = ThreadState.HOLD;
+     ThreadState _writeState = ThreadState.HOLD;
+    Mutex              _readLock;
+    Mutex              _writeLock;
 
-    string          _remoteAddress;
-    int             _fd;
-    bool            _terming = false;
+    string             _remoteAddress;
+    int                _fd;
+    bool               _terming = false;
+
+    void call(string T)()
+    {
+        Mutex       lock;
+        Tid         tid;
+        ThreadState state;
+
+        static if (T == "read")
+        {
+            lock  = _readLock;
+            tid   = _onRead;
+            state = _readState;
+        }
+        else
+        {
+            lock  = _writeLock;
+            tid   = _onWrite;
+            state = _writeState;
+        }
+
+        if (state == ThreadState.HOLD)
+        synchronized (lock)
+        {
+            if (state == ThreadState.HOLD)
+            {
+                tid.send(1);
+            }
+        }
+    }
+}
+
+enum ThreadState
+{
+    HOLD, RUNNING, TERM
 }

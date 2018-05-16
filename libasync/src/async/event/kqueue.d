@@ -167,7 +167,7 @@ class Kqueue : Selector
             {
                 TcpClient client = new TcpClient(this, _listener.accept());
                 _clients[client.fd] = client;
-                register(client.fd, EventType.READ);
+                register(client.fd, EventType.READWRITE);
 
                 if (_onConnected !is null)
                 {

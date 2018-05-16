@@ -76,7 +76,7 @@ class EventLoop : LoopSelector
                 while (true)
                 {
                     Thread.sleep(1.seconds);
-                    writefln("Current: _clients: %d, socket: %d, fiber_read: %d, fiber_write: %d.", _clients.length(), TcpClient.socket_counter, TcpClient.fiber_read_counter, TcpClient.fiber_write_counter);
+                    writefln("Current: clients: %d, socket: %d, thread_read: %d, thread_write: %d.", TcpClient.client_count, TcpClient.socket_counter, TcpClient.thread_read_counter, TcpClient.thread_write_counter);
                 }
             }).start();
         }

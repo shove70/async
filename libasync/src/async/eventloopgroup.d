@@ -13,14 +13,14 @@ alias OnCreateEventLoop = EventLoop function();
 
 class EventLoopGroup
 {
-    this(OnCreateEventLoop onCreateEventLoop, int size = totalCPUs - 1)
+    this(OnCreateEventLoop onCreateEventLoop, int size = totalCPUs)
     {
-        assert(size >= 0, "The size of loop must be greater than or equal to zero.");
+        assert(size >= 1, "The size of loop must be greater than or equal to 1.");
         assert(onCreateEventLoop !is null, "The delegate onCreateEventLoop must be provide.");
 
         _mainLoop = onCreateEventLoop();
 
-        foreach (i; 0 .. size)
+        foreach (i; 0 .. size - 1)
         {
             EventLoop loop = onCreateEventLoop();
             _loops[loop]   = new Thread(&loop.run);
