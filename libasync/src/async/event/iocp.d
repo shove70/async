@@ -24,24 +24,10 @@ class Iocp : Selector
 {
     this(TcpListener listener, OnConnected onConnected, OnDisConnected onDisConnected, OnReceive onReceive, OnSendCompleted onSendCompleted, OnSocketError onSocketError)
     {
-        this._onConnected    = onConnected;
-        this.onDisConnected  = onDisConnected;
-        this.onReceive       = onReceive;
-        this.onSendCompleted = onSendCompleted;
-        this.onSocketError   = onSocketError;
+        super(listener, onConnected, onDisConnected, onReceive, onSendCompleted, onSocketError);
 
-        _lock          = new Mutex;
-        _clients       = new Map!(int, TcpClient);
-
-        _handle        = CreateIoCompletionPort(INVALID_HANDLE_VALUE, null, 0, 0);
-        _listener      = listener;
-
+        _eventHandle = CreateIoCompletionPort(INVALID_HANDLE_VALUE, null, 0, 0);
         register(_listener.fd, EventType.ACCEPT);
-    }
-
-    ~this()
-    {
-        dispose();
     }
 
     override bool register(int fd, EventType et)
@@ -51,7 +37,7 @@ class Iocp : Selector
             return false;
         }
 
-        return (CreateIoCompletionPort(cast(HANDLE)fd, _handle, cast(size_t)(cast(void*)fd), 0) is _handle);
+        return (CreateIoCompletionPort(cast(HANDLE)fd, _eventHandle, cast(size_t)(cast(void*)fd), 0) is _handle);
     }
 
     override bool reregister(int fd, EventType et)
@@ -88,14 +74,14 @@ class Iocp : Selector
         }
     }
 
-    private void handleEvent()
+    override protected void handleEvent()
     {
         DWORD bytes   = 0;
         ULONG_PTR key = 0;
         OVERLAPPED*   overlapped;
         auto timeout  = 1000;
 
-        const int ret = GetQueuedCompletionStatus(_handle, &bytes, &key, &overlapped, timeout);
+        const int ret = GetQueuedCompletionStatus(_eventHandle, &bytes, &key, &overlapped, timeout);
 
         if (ret == 0)
         {
@@ -172,54 +158,6 @@ class Iocp : Selector
             break;
         }
     }
-
-    override void stop()
-    {
-        runing = false;
-    }
-
-    override void dispose()
-    {
-        if (_isDisposed)
-        {
-            return;
-        }
-
-        _isDisposed = true;
-
-        _clients.lock();
-        foreach (ref c; _clients)
-        {
-            deregister(c.fd);
-
-            if (c.isAlive)
-            {
-                c.close();
-            }
-        }
-        _clients.unlock();
-
-        _clients.clear();
-
-        deregister(_listener.fd);
-        _listener.close();
-    }
-
-    override void removeClient(int fd)
-    {
-        deregister(fd);
-
-        TcpClient client = _clients[fd];
-        if (client !is null)
-        {
-            _clients.remove(fd);
-            new Thread( { client.termTask(); }).start();
-        }
-    }
-
-private:
-
-    HANDLE _handle;
 }
 
 enum IocpOperation
