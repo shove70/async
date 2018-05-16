@@ -84,7 +84,7 @@ class EventLoop : LoopSelector
 
     void run()
     {
-        writefln("Thread starts listening to %s...", _listener.localAddress().toString());
+        writefln("Start listening to %s...", _listener.localAddress().toString());
 
         startLoop();
     }

@@ -7,27 +7,29 @@ import std.socket;
 
 import async.event.selector;
 import async.eventloop;
+import async.net.tcplistener;
 
-alias OnCreateServer = EventLoop function();
+alias OnCreateEventLoop = EventLoop function();
 
 class EventLoopGroup
 {
-    this(OnCreateServer onCreateServer, int size = totalCPUs - 1)
+    this(OnCreateEventLoop onCreateEventLoop, int size = totalCPUs - 1)
     {
         assert(size >= 0, "The size of loop must be greater than or equal to zero.");
+        assert(onCreateEventLoop !is null, "The delegate onCreateEventLoop must be provide.");
 
-        _mainLoop = onCreateServer();
+        _mainLoop = onCreateEventLoop();
 
         foreach (i; 0 .. size)
         {
-            EventLoop loop = onCreateServer();
+            EventLoop loop = onCreateEventLoop();
             _loops[loop]   = new Thread(&loop.run);
         }
     }
 
-    void start()
+    void run()
     {
-        if (_started)
+        if (_running)
         {
             return;
         }
@@ -39,12 +41,12 @@ class EventLoopGroup
 
         _mainLoop.run();
 
-        _started = true;
+        _running = true;
     }
 
     void stop()
     {
-        if (!_started)
+        if (!_running)
         {
             return;
         }
@@ -61,7 +63,7 @@ class EventLoopGroup
             t.join(false);
         }
 
-        _started = false;
+        _running = false;
     }
 
 private:
@@ -69,5 +71,5 @@ private:
     EventLoop         _mainLoop;
     Thread[EventLoop] _loops;
 
-    bool              _started;
+    bool              _running;
 }

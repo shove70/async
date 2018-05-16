@@ -7,12 +7,30 @@ import async;
 
 void main()
 {
+    EventLoopGroup group = new EventLoopGroup(&createEventLoop);
+    group.run();
+
+    group.stop();
+
+    /*
+        Not use group:
+     */
+
+    //EventLoop loop = new createEventLoop();
+    //loop.run();
+
+    //loop.stop();
+}
+
+EventLoop createEventLoop()
+{
     TcpListener listener = new TcpListener();
     listener.bind(new InternetAddress("0.0.0.0", 12290));
     listener.listen(10);
 
     EventLoop loop = new EventLoop(listener, &onConnected, &onDisConnected, &onReceive, &onSendCompleted, &onSocketError);
-    loop.run();
+
+    return loop;
 }
 
 void onConnected(TcpClient client)
