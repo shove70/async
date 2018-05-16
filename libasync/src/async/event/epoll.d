@@ -95,7 +95,7 @@ class Epoll : Selector
         return (epoll_ctl(_eventHandle, EPOLL_CTL_MOD, fd, &ev) == 0);
     }
 
-    override bool deregister(int fd)
+    override bool unregister(int fd)
     {
         if (fd < 0)
         {

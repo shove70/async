@@ -46,7 +46,7 @@ abstract class Selector
 
     bool register  (int fd, EventType et);
     bool reregister(int fd, EventType et);
-    bool deregister(int fd);
+    bool unregister(int fd);
 
     void startLoop()
     {
@@ -75,7 +75,7 @@ abstract class Selector
         _clients.lock();
         foreach (ref c; _clients)
         {
-            deregister(c.fd);
+            unregister(c.fd);
 
             if (c.isAlive)
             {
@@ -86,7 +86,7 @@ abstract class Selector
 
         _clients.clear();
 
-        deregister(_listener.fd);
+        unregister(_listener.fd);
         _listener.close();
 
         version (Windows)
@@ -100,7 +100,7 @@ abstract class Selector
 
     void removeClient(int fd)
     {
-        deregister(fd);
+        unregister(fd);
 
         TcpClient client = _clients[fd];
         if (client !is null)

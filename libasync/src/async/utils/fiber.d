@@ -2,6 +2,7 @@ module async.utils.fiber;
 
 import core.thread;
 import core.sync.mutex;
+import std.parallelism;
 
 class SyncFiber : Fiber
 {
@@ -26,6 +27,7 @@ class SyncFiber : Fiber
             if (state != Fiber.State.TERM)
             {
                 super.call();
+                //new Thread( { super.call(); } ).start();
             }
         }
     }

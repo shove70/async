@@ -50,7 +50,7 @@ class Iocp : Selector
         return true;
     }
 
-    override bool deregister(int fd)
+    override bool unregister(int fd)
     {
         if (fd < 0)
         {

@@ -113,7 +113,7 @@ class Kqueue : Selector
         return register(fd, et);
     }
 
-    override bool deregister(int fd)
+    override bool unregister(int fd)
     {
         if (fd < 0)
         {

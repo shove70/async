@@ -9,6 +9,7 @@ class Queue(T)
     this()
     {
         _lock = new Mutex;
+        _size = 0;
     }
 
     @property bool empty() const
@@ -24,11 +25,17 @@ class Queue(T)
         }
     }
 
+    @property size_t length()
+    {
+        return _size;
+    }
+
     void push(T value)
     {
         synchronized (_lock)
         {
             _data.insertAfter(_data[], value);
+            _size++;
         }
     }
 
@@ -38,6 +45,7 @@ class Queue(T)
         {
             T value = _data.front();
             _data.removeFront();
+            _size--;
 
             return value;
         }
@@ -48,6 +56,7 @@ class Queue(T)
         synchronized (_lock)
         {
             _data.clear();
+            _size = 0;
         }
     }
 
@@ -73,4 +82,6 @@ private:
 
     SList!T _data;
     Mutex   _lock;
+
+    size_t  _size;
 }
