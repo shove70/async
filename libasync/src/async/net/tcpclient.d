@@ -10,11 +10,11 @@ import core.sync.mutex;
 import std.socket;
 import std.conv;
 import std.string;
-import std.concurrency;
 
 import async.event.selector;
 import async.net.tcpstream;
 import async.container.queue;
+import async.thread;
 
 class TcpClient : TcpStream
 {
@@ -33,10 +33,8 @@ class TcpClient : TcpStream
         _selector      = selector;
         _writeQueue    = new Queue!(ubyte[])();
 
-        _onRead        = spawn(&read,  cast(shared TcpClient)this);
-        _onWrite       = spawn(&write, cast(shared TcpClient)this);
-        _readLock      = new Mutex;
-        _writeLock     = new Mutex;
+        _onRead        = new Task(&read,  cast(shared TcpClient)this);
+        _onWrite       = new Task(&write, cast(shared TcpClient)this);
 
         _remoteAddress = remoteAddress.toString();
         _fd            = fd;
@@ -50,52 +48,35 @@ class TcpClient : TcpStream
         }
     }
 
-    ~this()
-    {
-        while (_readState != ThreadState.TERM)
-        {
-            Thread.sleep(0.msecs);
-        }
-        while (_writeState != ThreadState.TERM)
-        {
-            Thread.sleep(0.msecs);
-        }
-
-        debug
-        {
-            writeln("Client dispose end.");
-        }
-    }
-
     void termTask()
     {
         _terming = true;
 
-        if (_readState != ThreadState.TERM)
+        if (_onRead.state != Task.State.TERM)
         {
-            while (_readState != ThreadState.HOLD)
+            while (_onRead.state != Task.State.HOLD)
             {
                 Thread.sleep(50.msecs);
             }
 
-            call!"read"();
+            _onRead.call(-1);
 
-            while (_readState != ThreadState.TERM)
+            while (_onRead.state != Task.State.TERM)
             {
                 Thread.sleep(0.msecs);
             }
         }
 
-        if (_writeState != ThreadState.TERM)
+        if (_onWrite.state != Task.State.TERM)
         {
-            while (_writeState != ThreadState.HOLD)
+            while (_onWrite.state != Task.State.HOLD)
             {
                 Thread.sleep(50.msecs);
             }
 
-            call!"write"();
+            _onWrite.call(-1);
 
-            while (_writeState != ThreadState.TERM)
+            while (_onWrite.state != Task.State.TERM)
             {
                 Thread.sleep(0.msecs);
             }
@@ -104,7 +85,7 @@ class TcpClient : TcpStream
         debug
         {
             client_count--;
-            writeln("TermTask dispose end.");
+            writeln("TermTask end.");
         }
     }
 
@@ -118,12 +99,12 @@ class TcpClient : TcpStream
         final switch (et)
         {
         case EventType.READ:
-            call!"read"();
+            _onRead.call();
             break;
         case EventType.WRITE:
             if (!_writeQueue.empty() || (_lastWriteOffset > 0))
             {
-                call!"write"();
+                _onWrite.call();
             }
             break;
         case EventType.ACCEPT:
@@ -136,9 +117,13 @@ class TcpClient : TcpStream
     {
         TcpClient client = cast(TcpClient)_client;
 
-        client._readState = ThreadState.HOLD;
-        receiveOnly!int();
-        client._readState = ThreadState.RUNNING;
+        if (client._onRead !is null)
+        {
+            if (client._onRead.yield() < 0)
+            {
+                goto terminate;
+            }
+        }
 
         while (client._selector.runing && !client._terming && client.isAlive)
         {
@@ -187,26 +172,39 @@ class TcpClient : TcpStream
                 client._selector.onReceive(client, data);
             }
 
-            client._readState = ThreadState.HOLD;
-            receiveOnly!int();
-            client._readState = ThreadState.RUNNING;
+            if (client._onRead !is null)
+            {
+                if (client._onRead.yield() < 0)
+                {
+                    break;
+                }
+            }
         }
+
+    terminate:
 
         debug
         {
             client.thread_read_counter--;
         }
 
-        client._readState = ThreadState.TERM;
+        if (client._onRead !is null)
+        {
+            client._onRead.terminate();
+        }
     }
 
     private static void write(shared TcpClient _client)
     {
         TcpClient client = cast(TcpClient)_client;
 
-        client._writeState = ThreadState.HOLD;
-        receiveOnly!int();
-        client._writeState = ThreadState.RUNNING;
+        if (client._onWrite !is null)
+        {
+            if (client._onWrite.yield() < 0)
+            {
+                goto terminate;
+            }
+        }
 
         while (client._selector.runing && !client._terming && client.isAlive)
         {
@@ -286,17 +284,27 @@ class TcpClient : TcpStream
             }
 
         yield:
-            client._writeState = ThreadState.HOLD;
-            receiveOnly!int();
-            client._writeState = ThreadState.RUNNING;
+
+            if (client._onWrite !is null)
+            {
+                if (client._onWrite.yield() < 0)
+                {
+                    break;
+                }
+            }
         }
+
+    terminate:
 
         debug
         {
             client.thread_write_counter--;
         }
 
-        client._writeState = ThreadState.TERM;
+        if (client._onWrite !is null)
+        {
+            client._onWrite.terminate();
+        }
     }
 
     int send(ubyte[] data)
@@ -400,48 +408,10 @@ private:
     ubyte[]            _writingData;
     size_t             _lastWriteOffset;
 
-    Tid                _onRead;
-    Tid                _onWrite;
-     ThreadState _readState  = ThreadState.HOLD;
-     ThreadState _writeState = ThreadState.HOLD;
-    Mutex              _readLock;
-    Mutex              _writeLock;
+    Task               _onRead;
+    Task               _onWrite;
 
     string             _remoteAddress;
     int                _fd;
-    bool               _terming = false;
-
-    void call(string T)()
-    {
-        Mutex       lock;
-        Tid         tid;
-        ThreadState state;
-
-        static if (T == "read")
-        {
-            lock  = _readLock;
-            tid   = _onRead;
-            state = _readState;
-        }
-        else
-        {
-            lock  = _writeLock;
-            tid   = _onWrite;
-            state = _writeState;
-        }
-
-        if (state == ThreadState.HOLD)
-        synchronized (lock)
-        {
-            if (state == ThreadState.HOLD)
-            {
-                tid.send(1);
-            }
-        }
-    }
-}
-
-enum ThreadState
-{
-    HOLD, RUNNING, TERM
+    shared bool        _terming = false;
 }

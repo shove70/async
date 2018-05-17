@@ -23,9 +23,11 @@ void main(string[] argv)
     }
 }
 
+__gshared long total = 0;
+
 private void go(ubyte[] data)
 {
-    for (int i = 0; i < 10000; i++)
+    for (int i = 0; i < 100; i++)
     {
         TcpSocket socket = new TcpSocket();
         socket.blocking = true;
@@ -101,7 +103,8 @@ private void go(ubyte[] data)
             }
         }
 
-        writeln("receive: ", "[0]: ", buffer[0], ", [$ - 1]: ", buffer[$ - 1]);
+        total++;
+        writeln(total.to!string, ": receive: ", "[0]: ", buffer[0], ", [$ - 1]: ", buffer[$ - 1]);
         socket.shutdown(SocketShutdown.BOTH);
         socket.close();
     }
