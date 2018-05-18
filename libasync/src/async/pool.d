@@ -1,4 +1,4 @@
-module async.poll;
+module async.pool;
 
 import std.socket;
 

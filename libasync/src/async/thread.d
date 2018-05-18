@@ -5,12 +5,13 @@ import core.sync.mutex;
 import std.concurrency;
 
 import async.net.tcpclient;
+import async.pool;
 import std.stdio;
 class Task
 {
     enum State
     {
-        RESET, START, HOLD, PROCESSING, TERM
+        HOLD, PROCESSING, TERM
     }
 
     this(void function(shared Task task) fn, TcpClient client)
@@ -35,18 +36,23 @@ class Task
         _state = value;
     }
 
-    State yield(State toState)
-    {synchronized(_lock){
-        _state     = toState;
+    State yield(State asState)
+    {
+        _state     = asState;
         State ctrl = receiveOnly!State;
-        _state     = State.PROCESSING;
+        _state     = ctrl;//State.PROCESSING;
 
-        return ctrl;}
+        return ctrl;
     }
 
-    void call(State toState, int a = 0)
+    void call(State toState)
     {
-        writeln("call: ", toState, " --  ", a);
+        if (client.state == ThreadPool.State.IDLE)
+        {
+            return;
+        }
+
+        writeln("call: ", toState);
         _tid.send(toState);
 
 //        if ((_state == State.RESET) || (_state == State.HOLD))
@@ -62,15 +68,10 @@ class Task
 //        }
     }
 
-    void terminate()
-    {
-        _state = State.TERM;
-    }
-
 private:
 
     Tid          _tid;
-    shared State _state = State.PROCESSING;
+    shared State _state = State.HOLD;
     Mutex        _lock;
 
     TcpClient    _client;

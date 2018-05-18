@@ -82,7 +82,7 @@ void onSendCompleted(int fd, string remoteAddress, in ubyte[] data, size_t sent_
     }
 }
 
-__gshared int size = 100000;
+__gshared int size = 10000000;
 __gshared ubyte[][int] queue;
 
 private size_t findCompleteMessage(in ubyte[] data)

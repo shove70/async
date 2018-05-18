@@ -61,7 +61,7 @@ import async.net.tcpstream;
 import async.net.tcplistener;
 import async.net.tcpclient;
 import async.container.map;
-import async.poll;
+import async.pool;
 
 alias LoopSelector = Kqueue;
 

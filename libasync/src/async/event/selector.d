@@ -13,7 +13,7 @@ else
 import async.net.tcplistener;
 import async.net.tcpclient;
 import async.container.map;
-import async.poll;
+import async.pool;
 
 alias OnConnected     = void function(TcpClient);
 alias OnDisConnected  = void function(int, string);
@@ -114,7 +114,7 @@ abstract class Selector
 
             new Thread(
             {
-                client.resetTask();
+                client.waitTaskHold();
                 ThreadPool.instance.revert(client);
             }).start();
         }
