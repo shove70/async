@@ -19,7 +19,7 @@ class Queue(T)
 
     @property ref T front()
     {
-        synchronized (_lock)
+        synchronized(_lock)
         {
             return _data.front();
         }
@@ -32,7 +32,7 @@ class Queue(T)
 
     void push(T value)
     {
-        synchronized (_lock)
+        synchronized(_lock)
         {
             _data.insertAfter(_data[], value);
             _size++;
@@ -41,7 +41,7 @@ class Queue(T)
 
     T pop()
     {
-        synchronized (_lock)
+        synchronized(_lock)
         {
             T value = _data.front();
             _data.removeFront();
@@ -53,7 +53,7 @@ class Queue(T)
 
     void clear()
     {
-        synchronized (_lock)
+        synchronized(_lock)
         {
             _data.clear();
             _size = 0;
@@ -62,7 +62,7 @@ class Queue(T)
 
     void reverse()
     {
-        synchronized (_lock)
+        synchronized(_lock)
         {
             _data.reverse();
         }

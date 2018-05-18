@@ -17,6 +17,7 @@ import async.net.tcpstream;
 import async.net.tcplistener;
 import async.net.tcpclient;
 import async.container.map;
+import async.poll;
 
 alias LoopSelector = Iocp;
 
@@ -111,7 +112,7 @@ class Iocp : Selector
         switch (ev.operation)
         {
         case IocpOperation.accept:
-            TcpClient client = new TcpClient(this, _listener.accept());
+            TcpClient client = ThreadPool.instance.take(this, _listener.accept()); // new TcpClient(this, _listener.accept());
             register(client.fd, EventType.READ);
             _clients[client.fd] = client;
 

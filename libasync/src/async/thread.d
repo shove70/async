@@ -4,23 +4,25 @@ import core.sync.mutex;
 
 import std.concurrency;
 
+import async.net.tcpclient;
+import std.stdio;
 class Task
 {
     enum State
     {
-        HOLD, PROCESSING, TERM
+        RESET, START, HOLD, PROCESSING, TERM
     }
 
-    this(T...)(void function(T args) fn, T args)
+    this(void function(shared Task task) fn, TcpClient client)
     {
-        _tid  = spawn(fn, args);
-        _lock = new Mutex;
+        _tid    = spawn(fn, cast(shared Task)this);
+        _client = client;
+        _lock   = new Mutex;
     }
 
-    this(T...)(void delegate(T args) dg, T args)
+    @property TcpClient client()
     {
-        _tid  = spawn(fn, args);
-        _lock = new Mutex;
+        return _client;
     }
 
     @property State state() const
@@ -33,27 +35,31 @@ class Task
         _state = value;
     }
 
-    int yield()
-    {
-        _state = State.HOLD;
-        int received = receiveOnly!int();
-        _state = State.PROCESSING;
+    State yield(State toState)
+    {synchronized(_lock){
+        _state     = toState;
+        State ctrl = receiveOnly!State;
+        _state     = State.PROCESSING;
 
-        return received;
+        return ctrl;}
     }
 
-    void call(int iden = 1)
+    void call(State toState, int a = 0)
     {
-        if (_state == State.HOLD)
-        {
-            synchronized (_lock)
-            {
-                if (_state == State.HOLD)
-                {
-                    _tid.send(iden);
-                }
-            }
-        }
+        writeln("call: ", toState, " --  ", a);
+        _tid.send(toState);
+
+//        if ((_state == State.RESET) || (_state == State.HOLD))
+//        {
+//            synchronized(_lock)
+//            {
+//                if ((_state == State.RESET) || (_state == State.HOLD))
+//                {writeln("call: ", toState);
+//                    _tid.send(toState);
+//                    _state = State.PROCESSING;
+//                }
+//            }
+//        }
     }
 
     void terminate()
@@ -66,4 +72,6 @@ private:
     Tid          _tid;
     shared State _state = State.PROCESSING;
     Mutex        _lock;
+
+    TcpClient    _client;
 }

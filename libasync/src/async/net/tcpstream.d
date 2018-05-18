@@ -7,6 +7,11 @@ abstract class TcpStream
 {
     this(Socket socket)
     {
+        reset(socket);
+    }
+
+    void reset(Socket socket)
+    {
         _socket          = socket;
         _socket.blocking = false;
     }

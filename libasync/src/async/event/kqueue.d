@@ -61,6 +61,7 @@ import async.net.tcpstream;
 import async.net.tcplistener;
 import async.net.tcpclient;
 import async.container.map;
+import async.poll;
 
 alias LoopSelector = Kqueue;
 
@@ -165,7 +166,7 @@ class Kqueue : Selector
 
             if (fd == _listener.fd)
             {
-                TcpClient client = new TcpClient(this, _listener.accept());
+                TcpClient client = ThreadPool.instance.take(this, _listener.accept()); // new TcpClient(this, _listener.accept());
                 _clients[client.fd] = client;
                 register(client.fd, EventType.READ);
 

@@ -62,7 +62,7 @@ void onReceive(TcpClient client, in ubyte[] data)
     ubyte[] buffer   = queue[client.fd][0 .. len];
     queue[client.fd] = queue[client.fd][len .. $];
 
-    client.send(buffer); // echo
+    client.send_withoutEventloop(buffer); // echo
 }
 
 void onSocketError(int fd, string remoteAddress, string msg)
@@ -82,7 +82,7 @@ void onSendCompleted(int fd, string remoteAddress, in ubyte[] data, size_t sent_
     }
 }
 
-__gshared int size = 10000000;
+__gshared int size = 100000;
 __gshared ubyte[][int] queue;
 
 private size_t findCompleteMessage(in ubyte[] data)

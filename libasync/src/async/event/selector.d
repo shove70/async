@@ -9,9 +9,11 @@ else
 {
     import core.sys.posix.unistd;
 }
+
 import async.net.tcplistener;
 import async.net.tcpclient;
 import async.container.map;
+import async.poll;
 
 alias OnConnected     = void function(TcpClient);
 alias OnDisConnected  = void function(int, string);
@@ -76,6 +78,7 @@ abstract class Selector
         foreach (ref c; _clients)
         {
             unregister(c.fd);
+            c.termTask();
 
             if (c.isAlive)
             {
@@ -88,6 +91,8 @@ abstract class Selector
 
         unregister(_listener.fd);
         _listener.close();
+
+        ThreadPool.instance.removeAll();
 
         version (Windows)
         {
@@ -106,7 +111,12 @@ abstract class Selector
         if (client !is null)
         {
             _clients.remove(fd);
-            new Thread( { client.termTask(); }).start();
+
+            new Thread(
+            {
+                client.resetTask();
+                ThreadPool.instance.revert(client);
+            }).start();
         }
     }
 

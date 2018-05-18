@@ -15,16 +15,11 @@ import async.event.selector;
 import async.net.tcpstream;
 import async.container.queue;
 import async.thread;
+import async.poll;
 
 class TcpClient : TcpStream
 {
-    debug
-    {
-        __gshared int thread_read_counter  = 0;
-        __gshared int thread_write_counter = 0;
-        __gshared int client_count         = 0;
-        __gshared int socket_counter       = 0;
-    }
+    ThreadPool.State state;
 
     this(Selector selector, Socket socket)
     {
@@ -33,19 +28,19 @@ class TcpClient : TcpStream
         _selector      = selector;
         _writeQueue    = new Queue!(ubyte[])();
 
-        _onRead        = new Task(&read,  cast(shared TcpClient)this);
-        _onWrite       = new Task(&write, cast(shared TcpClient)this);
+        _onRead        = new Task(&read,  this);
+        _onWrite       = new Task(&write, this);
 
         _remoteAddress = remoteAddress.toString();
         _fd            = fd;
+    }
 
-        debug
-        {
-            thread_read_counter++;
-            thread_write_counter++;
-            client_count++;
-            socket_counter++;
-        }
+    override void reset(Socket socket)
+    {
+        super.reset(socket);
+
+        _remoteAddress = remoteAddress.toString();
+        _fd            = fd;
     }
 
     void termTask()
@@ -54,13 +49,20 @@ class TcpClient : TcpStream
 
         if (_onRead.state != Task.State.TERM)
         {
-            while (_onRead.state != Task.State.HOLD)
+            if (_onRead.state == Task.State.RESET)
             {
-                Thread.sleep(50.msecs);
+                _onRead.call(Task.State.TERM);
             }
+            else
+            {
+                while (_onRead.state != Task.State.HOLD)
+                {
+                    Thread.sleep(50.msecs);
+                }
 
-            _onRead.call(-1);
-
+                _onRead.call(Task.State.TERM);
+            }
+            
             while (_onRead.state != Task.State.TERM)
             {
                 Thread.sleep(0.msecs);
@@ -69,24 +71,65 @@ class TcpClient : TcpStream
 
         if (_onWrite.state != Task.State.TERM)
         {
-            while (_onWrite.state != Task.State.HOLD)
+            if (_onWrite.state == Task.State.RESET)
             {
-                Thread.sleep(50.msecs);
+                _onWrite.call(Task.State.TERM);
             }
+            else
+            {
+                while (_onWrite.state != Task.State.HOLD)
+                {
+                    Thread.sleep(50.msecs);
+                }
 
-            _onWrite.call(-1);
+                _onWrite.call(Task.State.TERM);
+            }
 
             while (_onWrite.state != Task.State.TERM)
             {
                 Thread.sleep(0.msecs);
             }
         }
+    }
 
-        debug
+    void resetTask()
+    {
+        assert(_onRead.state  != Task.State.TERM, "Task _onRead is terminated.");
+        assert(_onWrite.state != Task.State.TERM, "Task _onWrite is terminated.");
+
+        _reseting = true;
+
+        if (_onRead.state != Task.State.RESET)
         {
-            client_count--;
-            writeln("TermTask end.");
+            while (_onRead.state != Task.State.HOLD)
+            {
+                Thread.sleep(50.msecs);
+            }
+writeln("AAAA");
+            _onRead.call(Task.State.RESET, 1);
+writeln("BBBB");
+            while (_onRead.state != Task.State.RESET)
+            {
+                Thread.sleep(0.msecs);
+            }writeln("CCCC");
         }
+
+        if (_onWrite.state != Task.State.RESET)
+        {
+            while (_onWrite.state != Task.State.HOLD)
+            {
+                Thread.sleep(50.msecs);
+            }
+
+            _onWrite.call(Task.State.RESET);
+
+            while (_onWrite.state != Task.State.RESET)
+            {
+                Thread.sleep(0.msecs);
+            }
+        }
+
+        _reseting = false;
     }
 
     void weakup(EventType et)
@@ -99,12 +142,12 @@ class TcpClient : TcpStream
         final switch (et)
         {
         case EventType.READ:
-            _onRead.call();
+            _onRead.call(Task.State.PROCESSING);
             break;
         case EventType.WRITE:
             if (!_writeQueue.empty() || (_lastWriteOffset > 0))
             {
-                _onWrite.call();
+                _onWrite.call(Task.State.PROCESSING);
             }
             break;
         case EventType.ACCEPT:
@@ -113,27 +156,28 @@ class TcpClient : TcpStream
         }
     }
 
-    private static void read(shared TcpClient _client)
+    private static void read(shared Task _task)
     {
-        TcpClient client = cast(TcpClient)_client;
+        Task task = cast(Task)_task;
 
-        if (client._onRead !is null)
+    reset:
+writeln("reset");
+        TcpClient client = task.client;
+
+        if (task.yield(Task.State.RESET) == Task.State.TERM)
         {
-            if (client._onRead.yield() < 0)
-            {
-                goto terminate;
-            }
+            goto terminate;
         }
-
-        while (client._selector.runing && !client._terming && client.isAlive)
+writeln("processing");
+        while (client._selector.runing && !client._terming && !client._reseting && client.isAlive)
         {
             ubyte[]     data;
             ubyte[4096] buffer;
 
-            while (client._selector.runing && !client._terming && client.isAlive)
+            while (client._selector.runing && !client._terming && !client._reseting && client.isAlive)
             {
                 long len = client._socket.receive(buffer);
-
+//writeln("read: ", len, ", total: ", data.length);
                 if (len > 0)
                 {
                     data ~= buffer[0 .. cast(uint)len];
@@ -172,43 +216,49 @@ class TcpClient : TcpStream
                 client._selector.onReceive(client, data);
             }
 
-            if (client._onRead !is null)
+        yield:
+writeln("hold", " ", client.isAlive());
+            Task.State ctrl = task.yield(Task.State.HOLD);
+writeln("hold continue");
+            if (ctrl == Task.State.RESET)
             {
-                if (client._onRead.yield() < 0)
-                {
-                    break;
-                }
+                goto reset;
             }
-        }
-
-    terminate:
-
-        debug
-        {
-            client.thread_read_counter--;
-        }
-
-        if (client._onRead !is null)
-        {
-            client._onRead.terminate();
-        }
-    }
-
-    private static void write(shared TcpClient _client)
-    {
-        TcpClient client = cast(TcpClient)_client;
-
-        if (client._onWrite !is null)
-        {
-            if (client._onWrite.yield() < 0)
+            else if (ctrl == Task.State.TERM)
             {
                 goto terminate;
             }
+            else if (ctrl == Task.State.PROCESSING)
+            {
+                continue;
+            }
         }
 
-        while (client._selector.runing && !client._terming && client.isAlive)
+        if (client._reseting)
         {
-            while (client._selector.runing && !client._terming && client.isAlive && (!client._writeQueue.empty() || (client._lastWriteOffset > 0)))
+            goto reset;
+        }
+writeln("term");
+    terminate:
+
+        task.terminate();
+    }
+
+    private static void write(shared Task _task)
+    {
+        Task task        = cast(Task)_task;
+        TcpClient client = task.client;
+
+    reset:
+
+        if (task.yield(Task.State.RESET) == Task.State.TERM)
+        {
+            goto terminate;
+        }
+
+        while (client._selector.runing && !client._terming && !client._reseting && client.isAlive)
+        {
+            while (client._selector.runing && !client._terming && !client._reseting && client.isAlive && (!client._writeQueue.empty() || (client._lastWriteOffset > 0)))
             {
                 if (client._writingData.length == 0)
                 {
@@ -216,7 +266,7 @@ class TcpClient : TcpStream
                     client._lastWriteOffset = 0;
                 }
 
-                while (client._selector.runing && !client._terming && client.isAlive && (client._lastWriteOffset < client._writingData.length))
+                while (client._selector.runing && !client._terming && !client._reseting && client.isAlive && (client._lastWriteOffset < client._writingData.length))
                 {
                     long len = client._socket.send(client._writingData[cast(uint)client._lastWriteOffset .. $]);
 
@@ -285,26 +335,30 @@ class TcpClient : TcpStream
 
         yield:
 
-            if (client._onWrite !is null)
+            Task.State ctrl = task.yield(Task.State.HOLD);
+
+            if (ctrl == Task.State.RESET)
             {
-                if (client._onWrite.yield() < 0)
-                {
-                    break;
-                }
+                goto reset;
             }
+            else if (ctrl == Task.State.TERM)
+            {
+                goto terminate;
+            }
+            else if (ctrl == Task.State.PROCESSING)
+            {
+                continue;
+            }
+        }
+
+        if (client._reseting)
+        {
+            goto reset;
         }
 
     terminate:
 
-        debug
-        {
-            client.thread_write_counter--;
-        }
-
-        if (client._onWrite !is null)
-        {
-            client._onWrite.terminate();
-        }
+        task.terminate();
     }
 
     int send(ubyte[] data)
@@ -385,11 +439,6 @@ class TcpClient : TcpStream
         _socket.shutdown(SocketShutdown.BOTH);
         _socket.close();
 
-        debug
-        {
-            socket_counter--;
-        }
-
         if ((errno != 0) && (_selector.onSocketError !is null))
         {
             _selector.onSocketError(_fd, _remoteAddress, fromStringz(strerror(errno)).idup);
@@ -413,5 +462,6 @@ private:
 
     string             _remoteAddress;
     int                _fd;
-    shared bool        _terming = false;
+    shared bool        _terming  = false;
+    shared bool        _reseting = false;
 }

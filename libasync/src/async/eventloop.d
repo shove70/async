@@ -66,20 +66,6 @@ class EventLoop : LoopSelector
         }
 
         super(listener, onConnected, onDisConnected, onReceive, onSendCompleted, onSocketError);
-
-        debug
-        {
-            import core.thread;
-            import async.net.tcpclient;
-            new Thread(
-            {
-                while (true)
-                {
-                    Thread.sleep(1.seconds);
-                    writefln("Current: clients: %d, socket: %d, thread_read: %d, thread_write: %d.", TcpClient.client_count, TcpClient.socket_counter, TcpClient.thread_read_counter, TcpClient.thread_write_counter);
-                }
-            }).start();
-        }
     }
 
     void run()

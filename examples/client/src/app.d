@@ -5,7 +5,7 @@ import std.concurrency;
 import core.thread;
 import core.stdc.errno;
 
-int size = 10000000;
+int size = 100000;
 
 void main(string[] argv)
 {
@@ -13,7 +13,7 @@ void main(string[] argv)
     data[0] = 1;
     data[$ - 1] = 2;
 
-    for (int i = 0; i < 10; i++)
+    for (int i = 0; i < 1; i++)
     {
         new Thread(
             {
@@ -27,11 +27,11 @@ __gshared long total = 0;
 
 private void go(ubyte[] data)
 {
-    for (int i = 0; i < 100; i++)
-    {
         TcpSocket socket = new TcpSocket();
         socket.blocking = true;
         socket.connect(new InternetAddress("127.0.0.1", 12290));
+    for (int i = 0; i < 1000; i++)
+    {
 
         long len;
         for (size_t off; off < data.length; off += len) {
@@ -105,7 +105,7 @@ private void go(ubyte[] data)
 
         total++;
         writeln(total.to!string, ": receive: ", "[0]: ", buffer[0], ", [$ - 1]: ", buffer[$ - 1]);
+    }
         socket.shutdown(SocketShutdown.BOTH);
         socket.close();
-    }
 }

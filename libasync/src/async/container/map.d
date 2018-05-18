@@ -30,7 +30,7 @@ class Map(TKey, TValue)
 
     ref auto opIndex(TKey key)
     {
-        synchronized (_lock)
+        synchronized(_lock)
         {
             if (key !in _data)
             {
@@ -50,7 +50,7 @@ class Map(TKey, TValue)
 
     void opIndexAssign(TValue value, TKey key)
     {
-        synchronized (_lock)
+        synchronized(_lock)
         {
             _data[key] = value;
         }
@@ -131,7 +131,7 @@ class Map(TKey, TValue)
 
     void remove(TKey key)
     {
-        synchronized (_lock)
+        synchronized(_lock)
         {
             _data.remove(key);
         }
@@ -139,7 +139,7 @@ class Map(TKey, TValue)
 
     void clear()
     {
-        synchronized (_lock)
+        synchronized(_lock)
         {
             _data.clear();
         }
