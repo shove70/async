@@ -76,6 +76,8 @@ class ThreadPool
 
     void revert(TcpClient client)
     {
+        assert (client.selector in _idleQueue, "No initialization queue for selector.");
+
         client.state = State.IDLE;
 
         synchronized (client.selector.classinfo)

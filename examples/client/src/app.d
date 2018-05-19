@@ -13,7 +13,7 @@ void main(string[] argv)
     data[0] = 1;
     data[$ - 1] = 2;
 
-    for (int i = 0; i < 1; i++)
+    for (int i = 0; i < 10; i++)
     {
         new Thread(
             {
@@ -27,7 +27,7 @@ __gshared long total = 0;
 
 private void go(ubyte[] data)
 {
-    for (int i = 0; i < 100000; i++)
+    for (int i = 0; i < 10000; i++)
     {
         TcpSocket socket = new TcpSocket();
         socket.blocking = true;

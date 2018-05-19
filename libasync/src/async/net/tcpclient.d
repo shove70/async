@@ -133,7 +133,7 @@ class TcpClient : TcpStream
             while (client._selector.runing && !client._terming && client.isAlive)
             {
                 long len = client._socket.receive(buffer);
-//writeln("read: ", len, ", total: ", data.length);
+
                 if (len > 0)
                 {
                     data ~= buffer[0 .. cast(uint)len];
