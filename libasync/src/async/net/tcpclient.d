@@ -35,9 +35,10 @@ class TcpClient : TcpStream
         _onWrite       = new Task(&write, this);
     }
 
-    override void reset(Socket socket)
+    void reset(Selector selector, Socket socket)
     {
         super.reset(socket);
+        _selector      = selector;
 
         _remoteAddress = remoteAddress.toString();
         _fd            = fd;
