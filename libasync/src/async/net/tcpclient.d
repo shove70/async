@@ -26,10 +26,11 @@ class TcpClient : TcpStream
         super(socket);
 
         _selector      = selector;
-        _writeQueue    = new Queue!(ubyte[])();
 
         _onRead        = new Task(&read,  this);
         _onWrite       = new Task(&write, this);
+
+        _sendLock      = new Mutex;
 
         _remoteAddress = remoteAddress.toString();
         _fd            = fd;
@@ -117,15 +118,10 @@ class TcpClient : TcpStream
 
     private static void read(shared Task _task)
     {
-        Task task = cast(Task)_task;
+        Task task        = cast(Task)_task;
         TcpClient client = task.client;
 
-        if (task.yield(Task.State.HOLD) == Task.State.TERM)
-        {
-            return;
-        }
-
-        while (client._selector.runing && !client._terming && client.isAlive)
+        while (task.yield(Task.State.HOLD) != Task.State.TERM)
         {
             ubyte[]     data;
             ubyte[4096] buffer;
@@ -171,13 +167,6 @@ class TcpClient : TcpStream
             {
                 client._selector.onReceive(client, data);
             }
-
-        yield:
-
-            if (task.yield(Task.State.HOLD) == Task.State.TERM)
-            {
-                return;
-            }
         }
     }
 
@@ -186,19 +175,17 @@ class TcpClient : TcpStream
         Task task        = cast(Task)_task;
         TcpClient client = task.client;
 
-        if (task.yield(Task.State.HOLD) == Task.State.TERM)
+        first: while (task.yield(Task.State.HOLD) != Task.State.TERM)
         {
-            return;
-        }
-
-        while (client._selector.runing && !client._terming && client.isAlive)
-        {
-            while (client._selector.runing && !client._terming && client.isAlive && (!client._writeQueue.empty() || (client._lastWriteOffset > 0)))
+            second: while (client._selector.runing && !client._terming && client.isAlive && (!client._writeQueue.empty() || (client._lastWriteOffset > 0)))
             {
                 if (client._writingData.length == 0)
                 {
-                    client._writingData     = client._writeQueue.pop();
-                    client._lastWriteOffset = 0;
+                    synchronized(client._sendLock)
+                    {
+                        client._writingData     = client._writeQueue.pop();
+                        client._lastWriteOffset = 0;
+                    }
                 }
 
                 while (client._selector.runing && !client._terming && client.isAlive && (client._lastWriteOffset < client._writingData.length))
@@ -229,7 +216,7 @@ class TcpClient : TcpStream
                         client._writingData.length = 0;
                         client._lastWriteOffset    = 0;
 
-                        goto yield; // sending is break and incomplete.
+                        continue first; // sending is break and incomplete.
                     }
                     else
                     {
@@ -239,14 +226,14 @@ class TcpClient : TcpStream
                         }
                         else if (errno == EAGAIN || errno == EWOULDBLOCK)
                         {
-                            goto yield;	// Wait eventloop notify to continue again;
+                            continue first; // Wait eventloop notify to continue again;
                         }
                         else
                         {
                             client._writingData.length = 0;
                             client._lastWriteOffset    = 0;
 
-                            goto yield; // Some error.
+                            continue first; // Some error.
                         }
                     }
                 }
@@ -267,13 +254,6 @@ class TcpClient : TcpStream
             {
                 client._selector.reregister(client.fd, EventType.READ);
             }
-
-        yield:
-
-            if (task.yield(Task.State.HOLD) == Task.State.TERM)
-            {
-                return;
-            }
         }
     }
 
@@ -289,7 +269,10 @@ class TcpClient : TcpStream
             return -2;
         }
 
-        _writeQueue.push(data);
+        synchronized(_sendLock)
+        {
+            _writeQueue.push(data);
+        }
         _selector.reregister(fd, EventType.READWRITE);
 
         return 0;
@@ -372,6 +355,7 @@ private:
     Queue!(ubyte[])    _writeQueue;
     ubyte[]            _writingData;
     size_t             _lastWriteOffset;
+    Mutex              _sendLock;
 
     Task               _onRead;
     Task               _onWrite;

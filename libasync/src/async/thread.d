@@ -5,7 +5,6 @@ import core.sync.mutex;
 import std.concurrency;
 
 import async.net.tcpclient;
-import async.pool;
 import std.stdio;
 class Task
 {
@@ -40,19 +39,14 @@ class Task
     {
         _state     = asState;
         State ctrl = receiveOnly!State;
-        _state     = ctrl;//State.PROCESSING;
+        _state     = ctrl;
 
         return ctrl;
     }
 
     void call(State toState)
     {
-        if (client.state == ThreadPool.State.IDLE)
-        {
-            return;
-        }
-
-        writeln("call: ", toState);
+        //writeln("call: ", toState);
         _tid.send(toState);
 
 //        if ((_state == State.RESET) || (_state == State.HOLD))

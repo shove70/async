@@ -1,17 +1,12 @@
 module async.container.queue;
 
 import core.sync.mutex;
+import core.atomic;
 
 import std.container.slist;
 
-class Queue(T)
+struct Queue(T)
 {
-    this()
-    {
-        _lock = new Mutex;
-        _size = 0;
-    }
-
     @property bool empty() const
     {
         return _data.empty();
@@ -19,10 +14,7 @@ class Queue(T)
 
     @property ref T front()
     {
-        synchronized(_lock)
-        {
-            return _data.front();
-        }
+        return _data.front();
     }
 
     @property size_t length()
@@ -32,56 +24,34 @@ class Queue(T)
 
     void push(T value)
     {
-        synchronized(_lock)
-        {
-            _data.insertAfter(_data[], value);
-            _size++;
-        }
+        _data.insertAfter(_data[], value);
+        core.atomic.atomicOp!"+="(this._size, 1);
     }
 
     T pop()
     {
-        synchronized(_lock)
-        {
-            T value = _data.front();
-            _data.removeFront();
-            _size--;
+        assert(!_data.empty(), "Queue is empty.");
 
-            return value;
-        }
+        T value = _data.front();
+        _data.removeFront();
+        core.atomic.atomicOp!"-="(this._size, 1);
+
+        return value;
     }
 
     void clear()
     {
-        synchronized(_lock)
-        {
-            _data.clear();
-            _size = 0;
-        }
+        _data.clear();
+        _size = 0;
     }
 
     void reverse()
     {
-        synchronized(_lock)
-        {
-            _data.reverse();
-        }
-    }
-
-    void lock()
-    {
-        _lock.lock();
-    }
-
-    void unlock()
-    {
-        _lock.unlock();
+        _data.reverse();
     }
 
 private:
 
-    SList!T _data;
-    Mutex   _lock;
-
-    size_t  _size;
+    SList!T        _data;
+    shared size_t  _size = 0;
 }

@@ -13,12 +13,6 @@ class ThreadPool
         BUSY, IDLE
     }
 
-    this()
-    {
-        _busyQueue = new Queue!TcpClient();
-        _idleQueue = new Queue!TcpClient();
-    }
-
 	static ThreadPool instance()
     {
         if (_instance is null)
@@ -37,20 +31,29 @@ class ThreadPool
 
     TcpClient take(Selector selector, Socket socket)
     {
-        TcpClient client;
+        TcpClient client = null;
 
-        if (_idleQueue.empty())
+        if (!_idleQueue.empty())
+        {
+            synchronized(this.classinfo)
+            {
+                if (!_idleQueue.empty())
+                {
+                    client = _idleQueue.pop();
+                }
+            }
+        }
+
+        if (client is null)
         {
             client = create(selector, socket);
         }
         else
         {
-            client = _idleQueue.pop();
             client.reset(socket);
         }
 
         client.state = State.BUSY;
-        _busyQueue.push(client);
 
         return client;
     }
@@ -58,25 +61,27 @@ class ThreadPool
     void revert(TcpClient client)
     {
         client.state = State.IDLE;
-        _idleQueue.push(client);
+        
+        synchronized(this.classinfo)
+        {
+            _idleQueue.push(client);
+        }
     }
 
     void removeAll()
     {
-        while (!_idleQueue.empty())
+        synchronized(this.classinfo)
         {
-            TcpClient client = _idleQueue.pop();
-            client.termTask();
+            while (!_idleQueue.empty())
+            {
+                _idleQueue.pop().termTask();
+            }
         }
-
-        _busyQueue.clear();
     }
 
 private:
 
 	__gshared ThreadPool _instance = null;
-
-    Queue!TcpClient      _busyQueue;
     Queue!TcpClient      _idleQueue;
 
     TcpClient create(Selector selector, Socket socket)
