@@ -43,7 +43,6 @@ class Task
 
     void call(State toState)
     {
-        //writeln("call: ", toState);
         _tid.send(toState);
     }
 

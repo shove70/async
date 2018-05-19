@@ -136,10 +136,10 @@ protected:
 
 public:
 
-    bool            runing;
+    bool                 runing;
 
-    OnDisConnected  onDisConnected;
-    OnReceive       onReceive;
-    OnSendCompleted onSendCompleted;
-    OnSocketError   onSocketError;
+    OnDisConnected       onDisConnected;
+    OnReceive            onReceive;
+    OnSendCompleted      onSendCompleted;
+    OnSocketError        onSocketError;
 }

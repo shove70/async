@@ -5,7 +5,7 @@ import std.concurrency;
 import core.thread;
 import core.stdc.errno;
 
-int size = 1000;
+int size = 10000000;
 
 void main(string[] argv)
 {
@@ -42,8 +42,8 @@ private void go(ubyte[] data)
             }
             else if (len == 0)
             {
+                writeln("Server socket close at send. Local socket: ", socket.localAddress().toString());
                 socket.close();
-                writeln("Server socket close at send.");
                 return;
             }
             else
@@ -60,8 +60,8 @@ private void go(ubyte[] data)
                 }
                 else
                 {
+                    writeln("Socket error at send. Local socket: ", socket.localAddress().toString());
                     socket.close();
-                    writeln("Socket error at send.");
                     return;
                 }
             }
@@ -78,8 +78,8 @@ private void go(ubyte[] data)
             }
             else if (len == 0)
             {
+                writeln("Server socket close at receive. Local socket: ", socket.localAddress().toString());
                 socket.close();
-                writeln("Server socket close at receive.");
                 return;
             }
             else
@@ -96,8 +96,8 @@ private void go(ubyte[] data)
                 }
                 else
                 {
+                    writeln("Socket error at receive. Local socket: ", socket.localAddress().toString());
                     socket.close();
-                    writeln("Socket error at receive.");
                     return;
                 }
             }

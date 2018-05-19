@@ -29,17 +29,33 @@ class ThreadPool
         return _instance;
     }
 
+    void init(Selector selector)
+    {
+        if (selector !in _idleQueue)
+        {
+            synchronized (selector.classinfo)
+            {
+                if (selector !in _idleQueue)
+                {
+                    _idleQueue[selector] = Queue!TcpClient();
+                }
+            }
+        }
+    }
+
     TcpClient take(Selector selector, Socket socket)
     {
+        assert (selector in _idleQueue, "No initialization queue for selector.");
+
         TcpClient client = null;
 
-        if (!_idleQueue.empty())
+        if (!_idleQueue[selector].empty())
         {
-            synchronized(this.classinfo)
+            synchronized (selector.classinfo)
             {
-                if (!_idleQueue.empty())
+                if (!_idleQueue[selector].empty())
                 {
-                    client = _idleQueue.pop();
+                    client = _idleQueue[selector].pop();
                 }
             }
         }
@@ -61,28 +77,31 @@ class ThreadPool
     void revert(TcpClient client)
     {
         client.state = State.IDLE;
-        
-        synchronized(this.classinfo)
+
+        synchronized (client.selector.classinfo)
         {
-            _idleQueue.push(client);
+            _idleQueue[client.selector].push(client);
         }
     }
 
     void removeAll()
     {
-        synchronized(this.classinfo)
+        synchronized (this.classinfo)
         {
-            while (!_idleQueue.empty())
+            foreach (queue; _idleQueue)
             {
-                _idleQueue.pop().termTask();
+                while (!queue.empty())
+                {
+                    queue.pop().termTask();
+                }
             }
         }
     }
 
 private:
 
-	__gshared ThreadPool _instance = null;
-    Queue!TcpClient      _idleQueue;
+	__gshared ThreadPool      _instance = null;
+    Queue!TcpClient[Selector] _idleQueue;
 
     TcpClient create(Selector selector, Socket socket)
     {

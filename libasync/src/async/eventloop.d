@@ -5,13 +5,14 @@ import std.socket;
 
 import async.event.selector;
 import async.net.tcplistener;
+import async.pool;
 
 version (Posix)
 {
     import core.sys.posix.signal;
 }
 
-version(linux)
+version (linux)
 {
     import async.event.epoll;
 }
@@ -66,6 +67,8 @@ class EventLoop : LoopSelector
         }
 
         super(listener, onConnected, onDisConnected, onReceive, onSendCompleted, onSocketError);
+
+        ThreadPool.instance.init(this);
     }
 
     void run()

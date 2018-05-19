@@ -43,6 +43,11 @@ class TcpClient : TcpStream
         _fd            = fd;
     }
 
+    @property Selector selector()
+    {
+        return _selector;
+    }
+
     void termTask()
     {
         _terming = true;
