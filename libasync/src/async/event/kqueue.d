@@ -166,7 +166,7 @@ class Kqueue : Selector
 
             if (fd == _listener.fd)
             {
-                TcpClient client = ThreadPool.instance.take(this, _listener.accept()); // new TcpClient(this, _listener.accept());
+                TcpClient client = ThreadPool.instance.take(this, _listener.accept());
                 _clients[client.fd] = client;
                 register(client.fd, EventType.READ);
 

@@ -1,11 +1,9 @@
 module async.thread;
 
-import core.sync.mutex;
-
 import std.concurrency;
 
 import async.net.tcpclient;
-import std.stdio;
+
 class Task
 {
     enum State
@@ -15,9 +13,8 @@ class Task
 
     this(void function(shared Task task) fn, TcpClient client)
     {
-        _tid    = spawn(fn, cast(shared Task)this);
         _client = client;
-        _lock   = new Mutex;
+        _tid    = spawn(fn, cast(shared Task)this);
     }
 
     @property TcpClient client()
@@ -48,25 +45,12 @@ class Task
     {
         //writeln("call: ", toState);
         _tid.send(toState);
-
-//        if ((_state == State.RESET) || (_state == State.HOLD))
-//        {
-//            synchronized(_lock)
-//            {
-//                if ((_state == State.RESET) || (_state == State.HOLD))
-//                {writeln("call: ", toState);
-//                    _tid.send(toState);
-//                    _state = State.PROCESSING;
-//                }
-//            }
-//        }
     }
 
 private:
 
     Tid          _tid;
     shared State _state = State.HOLD;
-    Mutex        _lock;
 
     TcpClient    _client;
 }

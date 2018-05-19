@@ -112,7 +112,7 @@ class Iocp : Selector
         switch (ev.operation)
         {
         case IocpOperation.accept:
-            TcpClient client = ThreadPool.instance.take(this, _listener.accept()); // new TcpClient(this, _listener.accept());
+            TcpClient client = ThreadPool.instance.take(this, _listener.accept());
             register(client.fd, EventType.READ);
             _clients[client.fd] = client;
 

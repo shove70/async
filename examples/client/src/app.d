@@ -13,7 +13,7 @@ void main(string[] argv)
     data[0] = 1;
     data[$ - 1] = 2;
 
-    for (int i = 0; i < 1; i++)
+    for (int i = 0; i < 10; i++)
     {
         new Thread(
             {
