@@ -7,17 +7,17 @@ import async;
 
 void main()
 {
-    EventLoopGroup group = new EventLoopGroup(&createEventLoop);  // Use the thread group, thread num: totalCPUs
-    group.run();
-
-    group.stop();
+//    EventLoopGroup group = new EventLoopGroup(&createEventLoop);  // Use the thread group, thread num: totalCPUs
+//    group.run();
+//
+//    group.stop();
 
 //    Not use group:
 
-//    EventLoop loop = createEventLoop();
-//    loop.run();
-//
-//    loop.stop();
+    EventLoop loop = createEventLoop();
+    loop.run();
+
+    loop.stop();
 }
 
 EventLoop createEventLoop()
@@ -82,7 +82,7 @@ void onSendCompleted(int fd, string remoteAddress, in ubyte[] data, size_t sent_
     }
 }
 
-__gshared int size = 10000000;
+__gshared int size = 1000;
 __gshared ubyte[][int] queue;
 
 private size_t findCompleteMessage(in ubyte[] data)

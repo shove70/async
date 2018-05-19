@@ -26,14 +26,13 @@ class TcpClient : TcpStream
         super(socket);
 
         _selector      = selector;
-
-        _onRead        = new Task(&read,  this);
-        _onWrite       = new Task(&write, this);
-
         _sendLock      = new Mutex;
 
         _remoteAddress = remoteAddress.toString();
         _fd            = fd;
+
+        _onRead        = new Task(&read,  this);
+        _onWrite       = new Task(&write, this);
     }
 
     override void reset(Socket socket)
