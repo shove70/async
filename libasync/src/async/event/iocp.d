@@ -4,6 +4,7 @@ debug import std.stdio;
 
 version (Windows):
 
+import core.stdc.errno;
 import core.sys.windows.windows;
 import core.sys.windows.winsock2;
 import core.sys.windows.mswsock;
@@ -113,13 +114,14 @@ class Iocp : Selector
         {
         case IocpOperation.accept:
             TcpClient client = ThreadPool.instance.take(this, _listener.accept());
-            register(client.fd, EventType.READ);
             _clients[client.fd] = client;
 
             if (_onConnected !is null)
             {
                 _onConnected(client);
             }
+
+            register(client.fd, EventType.READ);
             break;
         case IocpOperation.connect:
             TcpClient client = _clients[ev.fd];
@@ -148,8 +150,7 @@ class Iocp : Selector
 
             if (client !is null)
             {
-                removeClient(ev.fd);
-                client.close();
+                removeClient(ev.fd, errno);
             }
 
             debug writeln("Close event: ", ev.fd);

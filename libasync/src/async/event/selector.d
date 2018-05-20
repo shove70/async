@@ -103,7 +103,7 @@ abstract class Selector
         }
     }
 
-    void removeClient(int fd)
+    void removeClient(int fd, int errno = 0)
     {
         unregister(fd);
 
@@ -114,7 +114,7 @@ abstract class Selector
 
             new Thread(
             {
-                client.waitTaskHold();
+                client.close(errno);
                 ThreadPool.instance.revert(client);
             }).start();
         }

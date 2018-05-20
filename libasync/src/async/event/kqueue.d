@@ -156,8 +156,7 @@ class Kqueue : Selector
                     TcpClient client = _clients[fd];
                     if (client !is null)
                     {
-                        removeClient(fd);
-                        client.close();
+                        removeClient(fd, errno);
                     }
                     debug writeln("Close event: ", fd);
                 }
@@ -168,12 +167,13 @@ class Kqueue : Selector
             {
                 TcpClient client = ThreadPool.instance.take(this, _listener.accept());
                 _clients[client.fd] = client;
-                register(client.fd, EventType.READ);
 
                 if (_onConnected !is null)
                 {
                     _onConnected(client);
                 }
+
+                register(client.fd, EventType.READ);
             }
             else if (events[i].filter == EVFILT_READ)
             {

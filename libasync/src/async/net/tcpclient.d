@@ -19,7 +19,7 @@ import async.pool;
 
 class TcpClient : TcpStream
 {
-    ThreadPool.State state;
+    shared ThreadPool.State state;
 
     this(Selector selector, Socket socket)
     {
@@ -37,11 +37,16 @@ class TcpClient : TcpStream
 
     void reset(Selector selector, Socket socket)
     {
+        _selector = selector;
         super.reset(socket);
-        _selector      = selector;
 
         _remoteAddress = remoteAddress.toString();
         _fd            = fd;
+        _closing       = false;
+
+        _writeQueue.clear();
+        _writingData.length = 0;
+        _lastWriteOffset    = 0;
     }
 
     @property Selector selector()
@@ -51,7 +56,7 @@ class TcpClient : TcpStream
 
     void termTask()
     {
-        _terming = true;
+        _closing = true;
 
         if (_onRead.state != Task.State.TERM)
         {
@@ -84,14 +89,14 @@ class TcpClient : TcpStream
         }
     }
 
-    void waitTaskHold()
+    private void waitTaskHold()
     {
-        while (_onRead.state != Task.State.HOLD)
+        while ((_onRead.state != Task.State.TERM) && (_onRead.state != Task.State.HOLD))
         {
             Thread.sleep(50.msecs);
         }
 
-        while (_onWrite.state != Task.State.HOLD)
+        while ((_onWrite.state != Task.State.TERM) && (_onWrite.state != Task.State.HOLD))
         {
             Thread.sleep(50.msecs);
         }
@@ -99,7 +104,7 @@ class TcpClient : TcpStream
 
     void weakup(EventType et)
     {
-        if (!_selector.runing || _terming)
+        if (!_selector.runing || _closing)
         {
             return;
         }
@@ -131,7 +136,7 @@ class TcpClient : TcpStream
             ubyte[]     data;
             ubyte[4096] buffer;
 
-            while (client._selector.runing && !client._terming && client.isAlive)
+            while (client._selector.runing && !client._closing && client.isAlive)
             {
                 long len = client._socket.receive(buffer);
 
@@ -143,8 +148,10 @@ class TcpClient : TcpStream
                 }
                 else if (len == 0)
                 {
-                    client._selector.removeClient(client.fd);
-                    client.close();
+                    version (linux)
+                    {
+                        client._selector.removeClient(client.fd);
+                    }
                     data = null;
 
                     break;
@@ -182,7 +189,7 @@ class TcpClient : TcpStream
 
         first: while (task.yield(Task.State.HOLD) != Task.State.TERM)
         {
-            second: while (client._selector.runing && !client._terming && client.isAlive && (!client._writeQueue.empty() || (client._lastWriteOffset > 0)))
+            second: while (client._selector.runing && !client._closing && client.isAlive && (!client._writeQueue.empty() || (client._lastWriteOffset > 0)))
             {
                 if (client._writingData.length == 0)
                 {
@@ -193,7 +200,7 @@ class TcpClient : TcpStream
                     }
                 }
 
-                while (client._selector.runing && !client._terming && client.isAlive && (client._lastWriteOffset < client._writingData.length))
+                while (client._selector.runing && !client._closing && client.isAlive && (client._lastWriteOffset < client._writingData.length))
                 {
                     long len = client._socket.send(client._writingData[cast(uint)client._lastWriteOffset .. $]);
 
@@ -206,7 +213,6 @@ class TcpClient : TcpStream
                     else if (len == 0)
                     {
                         //client._selector.removeClient(fd);
-                        //client.close();
 
                         if (client._lastWriteOffset < client._writingData.length)
                         {
@@ -285,14 +291,14 @@ class TcpClient : TcpStream
 
     long send_withoutEventloop(in ubyte[] data)
     {
-        if ((data.length == 0) || !_selector.runing || _terming || !_socket.isAlive())
+        if ((data.length == 0) || !_selector.runing || _closing || !_socket.isAlive())
         {
             return 0;
         }
 
         long sent = 0;
 
-        while (_selector.runing && !_terming && isAlive && (sent < data.length))
+        while (_selector.runing && !_closing && isAlive && (sent < data.length))
         {
             long len = _socket.send(data[cast(uint)sent .. $]);
 
@@ -340,8 +346,7 @@ class TcpClient : TcpStream
 
     void close(int errno = 0)
     {
-        _socket.shutdown(SocketShutdown.BOTH);
-        _socket.close();
+        _closing = true;
 
         if ((errno != 0) && (_selector.onSocketError !is null))
         {
@@ -352,6 +357,14 @@ class TcpClient : TcpStream
         {
             _selector.onDisConnected(_fd, _remoteAddress);
         }
+
+        waitTaskHold();
+
+        _socket.shutdown(SocketShutdown.BOTH);
+        _socket.close();
+
+        _fd            = -1;
+        _remoteAddress = string.init;
     }
 
 private:
@@ -367,5 +380,5 @@ private:
 
     string             _remoteAddress;
     int                _fd;
-    shared bool        _terming  = false;
+    shared bool        _closing = false;
 }

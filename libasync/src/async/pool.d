@@ -13,7 +13,7 @@ class ThreadPool
         BUSY, IDLE
     }
 
-	static ThreadPool instance()
+    static ThreadPool instance()
     {
         if (_instance is null)
         {
@@ -81,7 +81,7 @@ class ThreadPool
 
 private:
 
-	__gshared ThreadPool _instance = null;
+    __gshared ThreadPool _instance = null;
     Queue!TcpClient      _idleQueue;
 
     TcpClient create(Selector selector, Socket socket)
