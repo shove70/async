@@ -53,12 +53,11 @@ void onDisConnected(int fd, string remoteAddress) nothrow @trusted
     }());
 }
 
-
 void onReceive(TcpClient client, in ubyte[] data) nothrow @trusted
 {
     collectException({
         ubyte[] buffer;
-    
+
         synchronized(lock)
         {
             if (client.fd !in queue)
@@ -66,25 +65,24 @@ void onReceive(TcpClient client, in ubyte[] data) nothrow @trusted
                 writeln("onReceive error. ", client.fd);
                 assert (0, "Error, fd: " ~ client.fd.to!string);
             }
-    
+
             queue[client.fd] ~= data;
-    
+
             size_t len = findCompleteMessage(queue[client.fd]);
             if (len == 0)
             {
                 return;
             }
-    
+
             buffer           = queue[client.fd][0 .. len];
             queue[client.fd] = queue[client.fd][len .. $];
         }
-    
+
         writefln("Receive from %s: %d, fd: %d", client.remoteAddress().toString(), buffer.length, client.fd);
         client.send(buffer); // echo
         //client.send_withoutEventloop(buffer); // echo
     }());
 }
-
 
 void onSocketError(int fd, string remoteAddress, string msg) nothrow @trusted
 {
@@ -92,7 +90,6 @@ void onSocketError(int fd, string remoteAddress, string msg) nothrow @trusted
         writeln("Client socket error: ", remoteAddress, " ", msg);
     }());
 }
-
 
 void onSendCompleted(int fd, string remoteAddress, in ubyte[] data, size_t sent_size) nothrow @trusted
 {

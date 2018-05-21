@@ -8,7 +8,7 @@
     "description": "A server example for async.",
     "dependencies" : {
         "async": {
-            "path": "../../"
+            "path": "../../../"
         }
     }
 }
