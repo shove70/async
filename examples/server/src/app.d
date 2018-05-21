@@ -2,15 +2,17 @@ import std.stdio;
 import std.conv;
 import std.socket;
 
-import async;
-import async.container.map;
+import core.sync.mutex;
 
-__gshared Map!(int, ubyte[]) queue;
-__gshared int size = 10000000;
+import async;
+
+__gshared ubyte[][int] queue;
+__gshared int size = 10000;
+__gshared Mutex lock;
 
 void main()
 {
-    queue = new Map!(int, ubyte[])();
+    lock = new Mutex();
 
     EventLoopGroup group = new EventLoopGroup(&createEventLoop);  // Use the thread group, thread num: totalCPUs
     group.run();
@@ -36,33 +38,39 @@ EventLoop createEventLoop()
 
 void onConnected(TcpClient client)
 {
-    queue[client.fd] = [];
+    synchronized(lock) queue[client.fd] = [];
     writefln("New connection: %s, fd: %d", client.remoteAddress().toString(), client.fd);
 }
 
 void onDisConnected(int fd, string remoteAddress)
 {
-    queue.remove(fd);
+    synchronized(lock) queue.remove(fd);
     writefln("\033[7mClient socket close: %s, fd: %d\033[0m", remoteAddress, fd);
 }
 
 void onReceive(TcpClient client, in ubyte[] data)
 {
-    //writefln("Receive from %s: %d", client.remoteAddress().toString(), data.length);
+    ubyte[] buffer;
 
-    assert (queue.exists(client.fd), "Error, fd: " ~ client.fd.to!string);
-
-    queue[client.fd] ~= data;
-
-    size_t len = findCompleteMessage(queue[client.fd]);
-
-    if (len == 0)
+    synchronized(lock)
     {
-        return;
-    }
+        if (client.fd !in queue)
+        {
+            writeln("onReceive error. ", client.fd);
+            assert (0, "Error, fd: " ~ client.fd.to!string);
+        }
 
-    ubyte[] buffer   = queue[client.fd][0 .. len];
-    queue[client.fd] = queue[client.fd][len .. $];
+        queue[client.fd] ~= data;
+
+        size_t len = findCompleteMessage(queue[client.fd]);
+        if (len == 0)
+        {
+            return;
+        }
+
+        buffer           = queue[client.fd][0 .. len];
+        queue[client.fd] = queue[client.fd][len .. $];
+    }
 
     writefln("Receive from %s: %d, fd: %d", client.remoteAddress().toString(), buffer.length, client.fd);
     client.send(buffer); // echo
