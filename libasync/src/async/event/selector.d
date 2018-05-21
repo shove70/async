@@ -15,11 +15,11 @@ import async.net.tcpclient;
 import async.container.map;
 import async.pool;
 
-alias OnConnected     = void function(TcpClient);
-alias OnDisConnected  = void function(int, string);
-alias OnReceive       = void function(TcpClient, in ubyte[]);
-alias OnSendCompleted = void function(int, string, in ubyte[], size_t);
-alias OnSocketError   = void function(int, string, string);
+alias OnConnected     = void function(TcpClient);                       nothrow @trusted
+alias OnDisConnected  = void function(int, string);                     nothrow @trusted
+alias OnReceive       = void function(TcpClient, in ubyte[]);           nothrow @trusted
+alias OnSendCompleted = void function(int, string, in ubyte[], size_t); nothrow @trusted
+alias OnSocketError   = void function(int, string, string);             nothrow @trusted
 
 enum EventType
 {
