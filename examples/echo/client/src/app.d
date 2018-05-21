@@ -9,7 +9,7 @@ void main(string[] argv)
     socket.connect(new InternetAddress("127.0.0.1", 12290));
 
     string data = "hello, server.";
-    writeln("client say: ", data);
+    writeln("Client say: ", data);
     socket.send(data);
 
     ubyte[] buffer = new ubyte[1024];
