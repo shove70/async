@@ -369,16 +369,16 @@ class TcpClient : TcpStream
 
 private:
 
-    Selector           _selector;
-    Queue!(ubyte[])    _writeQueue;
-    ubyte[]            _writingData;
-    size_t             _lastWriteOffset;
-    Mutex              _sendLock;
+    Selector        _selector;
+    Queue!(ubyte[]) _writeQueue;
+    ubyte[]         _writingData;
+    size_t          _lastWriteOffset;
+    Mutex           _sendLock;
 
-    Task               _onRead;
-    Task               _onWrite;
+    Task            _onRead;
+    Task            _onWrite;
 
-    string             _remoteAddress;
-    int                _fd;
-    shared bool        _closing = false;
+    string          _remoteAddress;
+    int             _fd;
+    shared bool     _closing = false;
 }

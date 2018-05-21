@@ -36,9 +36,8 @@ abstract class Selector
         this.onSendCompleted = onSendCompleted;
         this.onSocketError   = onSocketError;
 
-        _lock          = new Mutex;
-        _clients       = new Map!(int, TcpClient);
-        _listener      = listener;
+        _clients  = new Map!(int, TcpClient);
+        _listener = listener;
     }
 
     ~this()
@@ -129,8 +128,6 @@ protected:
     Map!(int, TcpClient) _clients;
 
     OnConnected          _onConnected;
-
-    Mutex                _lock;
 
     void handleEvent();
 
