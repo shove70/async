@@ -4,6 +4,8 @@ debug import std.stdio;
 
 version (Windows):
 
+pragma(lib, "Ws2_32");
+
 import core.stdc.errno;
 import core.sys.windows.windows;
 import core.sys.windows.winsock2;
@@ -39,7 +41,8 @@ class Iocp : Selector
             return false;
         }
 
-        return (CreateIoCompletionPort(cast(HANDLE)fd, _eventHandle, cast(size_t)(cast(void*)fd), 0) is _handle);
+        auto ret = CreateIoCompletionPort(cast(HANDLE)fd, _eventHandle, cast(ULONG_PTR)fd, 0);
+        return !(!ret);
     }
 
     override bool reregister(int fd, EventType et)
@@ -85,15 +88,6 @@ class Iocp : Selector
 
         const int ret = GetQueuedCompletionStatus(_eventHandle, &bytes, &key, &overlapped, timeout);
 
-        if (ret == 0)
-        {
-            const auto error = GetLastError();
-            if (error == WAIT_TIMEOUT) // || error == ERROR_OPERATION_ABORTED
-            {
-                return;
-            }
-        }
-
         if (overlapped is null)
         {
             debug writeln("Event is null.");
@@ -101,15 +95,32 @@ class Iocp : Selector
             return;
         }
 
-        auto ev = cast(IocpContext*)overlapped;
-
-        if (ev is null || ev.fd <= 0)
+        if (ret == 0)
         {
-            debug writeln("Event is invalid.");
+            const auto error = GetLastError();
+            if (error == WAIT_TIMEOUT) // || error == ERROR_OPERATION_ABORTED
+            {
+                return;
+            }
 
-            return;
+            auto ev = cast(IocpContext*)overlapped;
+
+            if (ev && ev.fd)
+            {
+                TcpClient client = _clients[ev.fd];
+
+                if (client !is null)
+                {
+                    removeClient(ev.fd);
+                }
+
+                debug writeln("Close event: ", ev.fd);
+
+                return;
+            }
         }
 
+        auto ev = cast(IocpContext*)overlapped;
         switch (ev.operation)
         {
         case IocpOperation.accept:
@@ -160,6 +171,28 @@ class Iocp : Selector
             break;
         }
     }
+
+    shared static this()
+    {
+        WSADATA wsaData;
+        int iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
+    
+        SOCKET ListenSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+        scope (exit)
+            closesocket(ListenSocket);
+        GUID guid;
+//        mixin(GET_FUNC_POINTER("WSAID_ACCEPTEX", "AcceptEx"));
+//        mixin(GET_FUNC_POINTER("WSAID_CONNECTEX", "ConnectEx"));
+    }
+    
+    shared static ~this()
+    {
+        WSACleanup();
+    }
+
+private:
+
+    HANDLE _eventHandle;
 }
 
 enum IocpOperation

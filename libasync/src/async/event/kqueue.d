@@ -156,7 +156,7 @@ class Kqueue : Selector
                     TcpClient client = _clients[fd];
                     if (client !is null)
                     {
-                        removeClient(fd, errno);
+                        removeClient(fd, (events[i].flags & EV_EOF) ? 0 : errno);
                     }
                     debug writeln("Close event: ", fd);
                 }

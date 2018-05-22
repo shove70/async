@@ -1,4 +1,4 @@
-# A cross-platform event loop library of asynchroneous objects.
+# A cross-platform event loop library of asynchroneous network sockets.
 
 This is a simple wrapper of network library, D language implementation. Its encapsulation is simple and clear, and is very suitable for reading and reference. Though very small, its performance is pretty good.
 
@@ -17,15 +17,6 @@ OpenBSD
 Epoll
 Kqueue
 IOCP
-
-### todo:
-
-You can add, repair and submit after fork, and improve it together. Thank you.
-
-Note:
-
-IOCP has not been completed and submitted.
-
 
 ### Quick Start:
 
@@ -79,7 +70,7 @@ void main(string[] argv)
     socket.connect(new InternetAddress("127.0.0.1", 12290));
 
     string data = "hello, server.";
-    writeln("client say: ", data);
+    writeln("Client say: ", data);
     socket.send(data);
 
     ubyte[] buffer = new ubyte[1024];
@@ -91,3 +82,11 @@ void main(string[] argv)
 }
 
 ```
+
+### Todo:
+
+You can add, repair and submit after fork, and improve it together. Thank you.
+
+Note:
+
+IOCP has not been completed and submitted.
