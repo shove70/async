@@ -5,7 +5,7 @@ debug import std.stdio;
 import core.stdc.errno;
 import core.stdc.string;
 import core.thread;
-import core.sync.mutex;
+import core.sync.rwmutex;
 
 import std.socket;
 import std.conv;
@@ -26,7 +26,7 @@ class TcpClient : TcpStream
         super(socket);
 
         _selector      = selector;
-        _sendLock      = new Mutex;
+        _sendLock      = new ReadWriteMutex(ReadWriteMutex.Policy.PREFER_WRITERS);
 
         _remoteAddress = remoteAddress.toString();
         _fd            = fd;
@@ -115,9 +115,12 @@ class TcpClient : TcpStream
             _onRead.call(Task.State.PROCESSING);
             break;
         case EventType.WRITE:
-            if (!_writeQueue.empty() || (_lastWriteOffset > 0))
+            synchronized (_sendLock.reader)
             {
-                _onWrite.call(Task.State.PROCESSING);
+                if (!_writeQueue.empty() || (_lastWriteOffset > 0))
+                {
+                    _onWrite.call(Task.State.PROCESSING);
+                }
             }
             break;
         case EventType.ACCEPT:
@@ -193,7 +196,7 @@ class TcpClient : TcpStream
             {
                 if (client._writingData.length == 0)
                 {
-                    synchronized(client._sendLock)
+                    synchronized (client._sendLock.writer)
                     {
                         client._writingData     = client._writeQueue.pop();
                         client._lastWriteOffset = 0;
@@ -280,7 +283,7 @@ class TcpClient : TcpStream
             return -2;
         }
 
-        synchronized(_sendLock)
+        synchronized (_sendLock.writer)
         {
             _writeQueue.push(data);
         }
@@ -373,7 +376,7 @@ private:
     Queue!(ubyte[]) _writeQueue;
     ubyte[]         _writingData;
     size_t          _lastWriteOffset;
-    Mutex           _sendLock;
+    ReadWriteMutex  _sendLock;
 
     Task            _onRead;
     Task            _onWrite;

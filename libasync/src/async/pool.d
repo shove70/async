@@ -17,7 +17,7 @@ class ThreadPool
     {
         if (_instance is null)
         {
-            synchronized(ThreadPool.classinfo)
+            synchronized (ThreadPool.classinfo)
             {
                 if (_instance is null)
                 {
