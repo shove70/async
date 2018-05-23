@@ -1,7 +1,5 @@
 module async.container.bytebuffer;
 
-import core.atomic;
-
 import std.container.dlist;
 import std.conv;
 
@@ -17,36 +15,36 @@ struct ByteBuffer
         return _size;
     }
 
-    typeof(this) opBinary(string op, Stuff)(auto ref Stuff rhs)
-    if ((is(Stuff : const ubyte[])) && op == "~")
+    ref typeof(this) opBinary(string op, Stuff)(auto ref Stuff rhs)
+    if ((is(Stuff: const ubyte[])) && op == "~")
     {
         if (rhs is null)
         {
             return this;
         }
 
-        _queue.insertBack(rhs);
-        core.atomic.atomicOp!"+="(_size, rhs.length);
+        _queue.insertBack(cast(ubyte[])rhs);
+        _size += rhs.length;
 
         return this;
     }
 
     void opOpAssign(string op, Stuff)(auto ref Stuff rhs)
-    if ((is(Stuff : const ubyte[])) && op == "~")
+    if ((is(Stuff: const ubyte[])) && op == "~")
     {
         if (rhs is null)
         {
             return;
         }
 
-        _queue.insertBack(rhs);
-        core.atomic.atomicOp!"+="(_size, rhs.length);
+        _queue.insertBack(cast(ubyte[])rhs);
+        _size += rhs.length;
     }
 
     ubyte[] opSlice(in size_t low, in size_t high) @trusted
     in
     {
-        assert ((low <= high) && (high <= _size));
+        assert ((low <= high) && (high <= _size), "ByteBuffer.opSlice: Invalid arguments low, high");
     }
     body
     {
@@ -85,17 +83,24 @@ struct ByteBuffer
         return _size;
     }
 
+    @property ref inout(ubyte[]) front() inout
+    {
+        assert (!_queue.empty, "ByteBuffer.front: Queue is empty");
+
+        return _queue.front;
+    }
+
     void popFront()
     {
-        assert (!_queue.empty);
+        assert (!_queue.empty, "ByteBuffer.popFront: Queue is empty");
 
-        core.atomic.atomicOp!"-="(_size, _queue.front.length);
+        _size -= _queue.front.length;
         _queue.removeFront();
     }
 
     void popFront(size_t size)
     {
-        assert (size >= 0 && size <= _size);
+        assert (size >= 0 && size <= _size, "ByteBuffer.popFront: Invalid arguments size");
 
         if (size == 0)
         {
@@ -137,7 +142,7 @@ struct ByteBuffer
             _queue.front = _queue.front[lack .. $];
         }
 
-        core.atomic.atomicOp!"-="(_size, size);
+        _size -= size;
     }
 
     void clear()
@@ -151,8 +156,24 @@ struct ByteBuffer
         return this[0 .. $].to!string();
     }
 
+    auto opCast(T)()
+    {
+        static if (isSomeString!T)
+        {
+            return toString();
+        }
+        else static if (is(T: const ubyte[]))
+        {
+            return this[0 .. $];
+        }
+        else
+        {
+            static assert(0, "ByteBuffer.opCast: Not support type.");
+        }
+    }
+
 private:
 
     DList!(ubyte[]) _queue;
-    shared size_t   _size;
+    size_t          _size;
 }

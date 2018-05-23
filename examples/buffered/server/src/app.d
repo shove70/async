@@ -6,8 +6,9 @@ import std.exception;
 import core.sync.mutex;
 
 import async;
+import async.container.bytebuffer;
 
-__gshared ubyte[][int] queue;
+__gshared ByteBuffer[int] queue;
 __gshared int size = 10000;
 __gshared Mutex lock;
 
@@ -40,7 +41,7 @@ EventLoop createEventLoop()
 void onConnected(TcpClient client) nothrow @trusted
 {
     collectException({
-        synchronized(lock) queue[client.fd] = [];
+        synchronized(lock) queue[client.fd] = ByteBuffer();
         writefln("New connection: %s, fd: %d", client.remoteAddress().toString(), client.fd);
     }());
 }
@@ -74,8 +75,8 @@ void onReceive(TcpClient client, in ubyte[] data) nothrow @trusted
                 return;
             }
 
-            buffer           = queue[client.fd][0 .. len];
-            queue[client.fd] = queue[client.fd][len .. $];
+            buffer = queue[client.fd][0 .. len];
+            queue[client.fd].popFront(len);
         }
 
         writefln("Receive from %s: %d, fd: %d", client.remoteAddress().toString(), buffer.length, client.fd);
@@ -104,7 +105,7 @@ void onSendCompleted(int fd, string remoteAddress, in ubyte[] data, size_t sent_
     }());
 }
 
-private size_t findCompleteMessage(in ubyte[] data)
+private size_t findCompleteMessage(ByteBuffer data)
 {
     if (data.length < size)
     {

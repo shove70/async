@@ -13,7 +13,7 @@ import std.string;
 
 import async.event.selector;
 import async.net.tcpstream;
-import async.container.queue;
+import async.container.bytebuffer;
 import async.thread;
 import async.pool;
 
@@ -203,7 +203,8 @@ class TcpClient : TcpStream
                 {
                     synchronized (client._sendLock.writer)
                     {
-                        client._writingData     = client._writeQueue.pop();
+                        client._writingData     = client._writeQueue.front;
+                        client._writeQueue.popFront();
                         client._lastWriteOffset = 0;
                     }
                 }
@@ -275,7 +276,7 @@ class TcpClient : TcpStream
                 }
             }
 
-            if (client._writeQueue.empty() && (client._writingData.length == 0) && (client._currentEventType != EventType.READ))
+            if (client._writeQueue.empty() && (client._writingData.length == 0) && (client._currentEventType == EventType.READWRITE))
             {
                 client._selector.reregister(client.fd, EventType.READ);
                 client._currentEventType = EventType.READ;
@@ -297,16 +298,16 @@ class TcpClient : TcpStream
 
         synchronized (_sendLock.writer)
         {
-            _writeQueue.push(data);
+            _writeQueue ~= data;
         }
 
-        _onWrite.call(Task.State.PROCESSING);    // First write direct, and when it encounter EAGAIN, it will open the EVENT notification.
+        weakup(EventType.WRITE);  // First write direct, and when it encounter EAGAIN, it will open the EVENT notification.
 
         return 0;
     }
 
     /*
-    long send(in ubyte[] data)
+    long send(ubyte[] data)
     {
         if ((data.length == 0) || !_selector.runing || _closing || !_socket.isAlive())
         {
@@ -388,14 +389,14 @@ class TcpClient : TcpStream
 private:
 
     Selector         _selector;
-    Queue!(ubyte[])  _writeQueue;
+    ByteBuffer       _writeQueue;
     ubyte[]          _writingData;
     size_t           _lastWriteOffset;
     ReadWriteMutex   _sendLock;
 
     string           _remoteAddress;
     int              _fd;
-    shared EventType _currentEventType;
+    EventType        _currentEventType;
     shared bool      _closing;
 
     Task             _onRead;
