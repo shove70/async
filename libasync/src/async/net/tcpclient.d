@@ -25,14 +25,18 @@ class TcpClient : TcpStream
     {
         super(socket);
 
-        _selector      = selector;
-        _sendLock      = new ReadWriteMutex(ReadWriteMutex.Policy.PREFER_WRITERS);
+        _selector           = selector;
+        _sendLock           = new ReadWriteMutex(ReadWriteMutex.Policy.PREFER_WRITERS);
 
-        _remoteAddress = remoteAddress.toString();
-        _fd            = fd;
+        _remoteAddress      = remoteAddress.toString();
+        _fd                 = fd;
+        _currentEventType   = EventType.READ;
+        _closing            = false;
 
-        _onRead        = new Task(&read,  this);
-        _onWrite       = new Task(&write, this);
+        _onRead             = new Task(&read,  this);
+        _onWrite            = new Task(&write, this);
+
+        _lastWriteOffset    = 0;
     }
 
     void reset(Selector selector, Socket socket)
@@ -40,14 +44,14 @@ class TcpClient : TcpStream
         _selector = selector;
         super.reset(socket);
 
-        _remoteAddress = remoteAddress.toString();
-        _fd            = fd;
-        _closing       = false;
+        _remoteAddress      = remoteAddress.toString();
+        _fd                 = fd;
+        _currentEventType   = EventType.READ;
+        _closing            = false;
 
         _writeQueue.clear();
         _writingData.length = 0;
         _lastWriteOffset    = 0;
-        _currentEventType   = EventType.READ;
     }
 
     @property Selector selector()
@@ -389,11 +393,11 @@ private:
     size_t           _lastWriteOffset;
     ReadWriteMutex   _sendLock;
 
-    Task             _onRead;
-    Task             _onWrite;
-    shared EventType _currentEventType = EventType.READ;
-
     string           _remoteAddress;
     int              _fd;
-    shared bool      _closing = false;
+    shared EventType _currentEventType;
+    shared bool      _closing;
+
+    Task             _onRead;
+    Task             _onWrite;
 }
