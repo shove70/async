@@ -47,6 +47,7 @@ class TcpClient : TcpStream
         _writeQueue.clear();
         _writingData.length = 0;
         _lastWriteOffset    = 0;
+        _currentEventType   = EventType.READ;
     }
 
     @property Selector selector()
@@ -240,6 +241,12 @@ class TcpClient : TcpStream
                         }
                         else if (errno == EAGAIN || errno == EWOULDBLOCK)
                         {
+                            if (client._currentEventType != EventType.READWRITE)
+                            {
+                                client._selector.reregister(client.fd, EventType.READWRITE);
+                                client._currentEventType = EventType.READWRITE;
+                            }
+
                             continue first; // Wait eventloop notify to continue again;
                         }
                         else
@@ -264,9 +271,10 @@ class TcpClient : TcpStream
                 }
             }
 
-            if (client._writeQueue.empty() && (client._writingData.length == 0))
+            if (client._writeQueue.empty() && (client._writingData.length == 0) && (client._currentEventType != EventType.READ))
             {
                 client._selector.reregister(client.fd, EventType.READ);
+                client._currentEventType = EventType.READ;
             }
         }
     }
@@ -287,12 +295,14 @@ class TcpClient : TcpStream
         {
             _writeQueue.push(data);
         }
-        _selector.reregister(fd, EventType.READWRITE);
+
+        _onWrite.call(Task.State.PROCESSING);    // First write direct, and when it encounter EAGAIN, it will open the EVENT notification.
 
         return 0;
     }
 
-    long send_withoutEventloop(in ubyte[] data)
+    /*
+    long send(in ubyte[] data)
     {
         if ((data.length == 0) || !_selector.runing || _closing || !_socket.isAlive())
         {
@@ -346,6 +356,7 @@ class TcpClient : TcpStream
 
         return sent;
     }
+    */
 
     void close(int errno = 0)
     {
@@ -372,16 +383,17 @@ class TcpClient : TcpStream
 
 private:
 
-    Selector        _selector;
-    Queue!(ubyte[]) _writeQueue;
-    ubyte[]         _writingData;
-    size_t          _lastWriteOffset;
-    ReadWriteMutex  _sendLock;
+    Selector         _selector;
+    Queue!(ubyte[])  _writeQueue;
+    ubyte[]          _writingData;
+    size_t           _lastWriteOffset;
+    ReadWriteMutex   _sendLock;
 
-    Task            _onRead;
-    Task            _onWrite;
+    Task             _onRead;
+    Task             _onWrite;
+    shared EventType _currentEventType = EventType.READ;
 
-    string          _remoteAddress;
-    int             _fd;
-    shared bool     _closing = false;
+    string           _remoteAddress;
+    int              _fd;
+    shared bool      _closing = false;
 }

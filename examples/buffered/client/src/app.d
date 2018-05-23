@@ -52,24 +52,10 @@ private void go(ubyte[] data)
             }
             else
             {
-                len = 0;
-                if (errno == EINTR)
-                {
-                    continue;
-                }
-                else if (errno == EAGAIN || errno == EWOULDBLOCK)
-                {
-                    Thread.sleep(50.msecs);
+                writeln("Socket error at send. Local socket: ", socket.localAddress().toString());
+                socket.close();
 
-                    continue;
-                }
-                else
-                {
-                    writeln("Socket error at send. Local socket: ", socket.localAddress().toString());
-                    socket.close();
-
-                    return;
-                }
+                return;
             }
         }
 
@@ -93,25 +79,10 @@ private void go(ubyte[] data)
             }
             else
             {
-                len = 0;
+                writeln("Socket error at receive. Local socket: ", socket.localAddress().toString());
+                socket.close();
 
-                if (errno == EINTR)
-                {
-                    continue;
-                }
-                else if (errno == EAGAIN || errno == EWOULDBLOCK)
-                {
-                    Thread.sleep(50.msecs);
-
-                    continue;
-                }
-                else
-                {
-                    writeln("Socket error at receive. Local socket: ", socket.localAddress().toString());
-                    socket.close();
-
-                    return;
-                }
+                return;
             }
         }
 
