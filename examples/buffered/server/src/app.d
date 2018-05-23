@@ -80,7 +80,6 @@ void onReceive(TcpClient client, in ubyte[] data) nothrow @trusted
 
         writefln("Receive from %s: %d, fd: %d", client.remoteAddress().toString(), buffer.length, client.fd);
         client.send(buffer); // echo
-        //client.send_withoutEventloop(buffer); // echo
     }());
 }
 
