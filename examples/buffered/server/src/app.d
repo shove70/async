@@ -105,7 +105,7 @@ void onSendCompleted(int fd, string remoteAddress, in ubyte[] data, size_t sent_
     }());
 }
 
-private size_t findCompleteMessage(ByteBuffer data)
+private size_t findCompleteMessage(ref ByteBuffer data)
 {
     if (data.length < size)
     {

@@ -386,6 +386,21 @@ class TcpClient : TcpStream
         _remoteAddress = string.init;
     }
 
+    /*
+    Important:
+    
+    The method for emergency shutdown of the application layer is close the socket.
+    When a message that does not meet the requirements is sent to the server,
+    this method should be called to avoid the waste of resources.
+    */
+    void forceClose()
+    {
+        if (isAlive)
+        {
+            _selector.removeClient(fd);
+        }
+    }
+
 private:
 
     Selector         _selector;
