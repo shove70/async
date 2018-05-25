@@ -1,7 +1,6 @@
 module async.container.queue;
 
 import core.sync.mutex;
-import core.atomic;
 
 import std.container.dlist;
 
@@ -25,7 +24,7 @@ struct Queue(T)
     void push(T value)
     {
         _data.insertBack(value);
-        core.atomic.atomicOp!"+="(this._size, 1);
+        _size++;
     }
 
     T pop()
@@ -34,7 +33,7 @@ struct Queue(T)
 
         T value = _data.front();
         _data.removeFront();
-        core.atomic.atomicOp!"-="(this._size, 1);
+        _size--;
 
         return value;
     }
@@ -47,6 +46,6 @@ struct Queue(T)
 
 private:
 
-    DList!T        _data;
-    shared size_t  _size = 0;
+    DList!T _data;
+    size_t  _size = 0;
 }
