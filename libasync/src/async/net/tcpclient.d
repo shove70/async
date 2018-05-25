@@ -369,7 +369,7 @@ class TcpClient : TcpStream
 
         if ((errno != 0) && (_selector.onSocketError !is null))
         {
-            _selector.onSocketError(_fd, _remoteAddress, fromStringz(strerror(errno)).idup);
+            _selector.onSocketError(_fd, _remoteAddress, formatSocketError(errno));
         }
 
         if (_selector.onDisConnected !is null)
@@ -388,7 +388,7 @@ class TcpClient : TcpStream
 
     /*
     Important:
-    
+
     The method for emergency shutdown of the application layer is close the socket.
     When a message that does not meet the requirements is sent to the server,
     this method should be called to avoid the waste of resources.

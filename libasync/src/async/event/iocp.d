@@ -124,7 +124,18 @@ class Iocp : Selector
         switch (ev.operation)
         {
         case IocpOperation.accept:
-            TcpClient client = ThreadPool.instance.take(this, _listener.accept());
+            Socket socket;
+
+            try
+            {
+                socket = _listener.accept();
+            }
+            catch (Exception e)
+            {
+                break;
+            }
+
+            TcpClient client = ThreadPool.instance.take(this, socket);
             _clients[client.fd] = client;
 
             if (_onConnected !is null)
@@ -133,6 +144,7 @@ class Iocp : Selector
             }
 
             register(client.fd, EventType.READ);
+
             break;
         case IocpOperation.connect:
             TcpClient client = _clients[ev.fd];
@@ -141,6 +153,7 @@ class Iocp : Selector
             {
                 client.weakup(EventType.READ);
             }
+
             break;
         case IocpOperation.read:
             TcpClient client = _clients[ev.fd];
@@ -149,6 +162,7 @@ class Iocp : Selector
             {
                 client.weakup(EventType.READ);
             }
+
             break;
         case IocpOperation.write:
 
@@ -165,9 +179,11 @@ class Iocp : Selector
             }
 
             debug writeln("Close event: ", ev.fd);
+
             break;
         default:
             debug writefln("Unsupported operation type: ", ev.operation);
+
             break;
         }
     }

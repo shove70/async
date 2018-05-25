@@ -123,19 +123,47 @@ class Epoll : Selector
                 }
                 else
                 {
+                    if (errno == EINTR)
+                    {
+                        continue;
+                    }
+
                     TcpClient client = _clients[fd];
+
                     if (client !is null)
                     {
                         removeClient(fd, errno);
                     }
+
                     debug writeln("Close event: ", fd);
                 }
+
                 continue;
             }
 
             if (fd == _listener.fd)
             {
-                TcpClient client = ThreadPool.instance.take(this, _listener.accept());
+                Socket socket;
+                int temp_errno = errno; // temp, will be remove.
+
+                try
+                {
+                    socket = _listener.accept();
+                }
+                catch (Exception e)
+                {
+                    // temp, will be remove.
+                    if (temp_errno == EINTR)
+                    {
+                        import std.stdio;
+                        writeln("Epoll accepting exception when EINTR: " ~ e.toString());
+                    }
+                    // temp end.
+
+                    continue;
+                }
+
+                TcpClient client = ThreadPool.instance.take(this, socket);
                 _clients[client.fd] = client;
 
                 if (_onConnected !is null)

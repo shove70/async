@@ -154,18 +154,32 @@ class Kqueue : Selector
                 else
                 {
                     TcpClient client = _clients[fd];
+
                     if (client !is null)
                     {
                         removeClient(fd, (events[i].flags & EV_EOF) ? 0 : errno);
                     }
+
                     debug writeln("Close event: ", fd);
                 }
+
                 continue;
             }
 
             if (fd == _listener.fd)
             {
-                TcpClient client = ThreadPool.instance.take(this, _listener.accept());
+                Socket socket;
+
+                try
+                {
+                    socket = _listener.accept();
+                }
+                catch (Exception e)
+                {
+                    continue;
+                }
+
+                TcpClient client = ThreadPool.instance.take(this, socket);
                 _clients[client.fd] = client;
 
                 if (_onConnected !is null)
