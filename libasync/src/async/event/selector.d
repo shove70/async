@@ -13,7 +13,6 @@ else
 import async.net.tcplistener;
 import async.net.tcpclient;
 import async.container.map;
-import async.pool;
 
 alias OnConnected     = void function(TcpClient);                       nothrow @trusted
 alias OnDisConnected  = void function(int, string);                     nothrow @trusted
@@ -77,7 +76,6 @@ abstract class Selector
         foreach (ref c; _clients)
         {
             unregister(c.fd);
-            c.termTask();
 
             if (c.isAlive)
             {
@@ -91,8 +89,6 @@ abstract class Selector
         unregister(_listener.fd);
         _listener.close();
 
-        ThreadPool.instance.removeAll();
-
         version (Windows)
         {
         }
@@ -102,21 +98,11 @@ abstract class Selector
         }
     }
 
-    void removeClient(int fd, int errno = 0)
+    void removeClient(TcpClient client, int errno = 0)
     {
-        unregister(fd);
-
-        TcpClient client = _clients[fd];
-        if (client !is null)
-        {
-            _clients.remove(fd);
-
-            new Thread(
-            {
-                client.close(errno);
-                ThreadPool.instance.revert(client);
-            }).start();
-        }
+        unregister(client.fd);
+        _clients.remove(client.fd);
+        client.close(errno);
     }
 
 protected:

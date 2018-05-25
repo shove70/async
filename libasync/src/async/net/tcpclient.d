@@ -14,13 +14,9 @@ import std.string;
 import async.event.selector;
 import async.net.tcpstream;
 import async.container.bytebuffer;
-import async.thread;
-import async.pool;
 
 class TcpClient : TcpStream
 {
-    shared ThreadPool.State state;
-
     this(Selector selector, Socket socket)
     {
         super(socket);
@@ -33,136 +29,95 @@ class TcpClient : TcpStream
         _currentEventType   = EventType.READ;
         _closing            = false;
 
-        _onRead             = new Task(&read,  this);
-        _onWrite            = new Task(&write, this);
-
         _lastWriteOffset    = 0;
     }
 
-    void reset(Selector selector, Socket socket)
+    long read()
     {
-        _selector = selector;
-        super.reset(socket);
+        ubyte[]     data;
+        ubyte[4096] buffer;
 
-        _remoteAddress      = remoteAddress.toString();
-        _fd                 = fd;
-        _currentEventType   = EventType.READ;
-        _closing            = false;
-
-        _writeQueue.clear();
-        _writingData.length = 0;
-        _lastWriteOffset    = 0;
-    }
-
-    @property Selector selector()
-    {
-        return _selector;
-    }
-
-    void termTask()
-    {
-        _closing = true;
-
-        if (_onRead.state != Task.State.TERM)
+        while (!_closing)
         {
-            while (_onRead.state != Task.State.HOLD)
+            long len = _socket.receive(buffer);
+
+            if (len > 0)
             {
-                Thread.sleep(50.msecs);
+                data ~= buffer[0 .. cast(uint)len];
+
+                continue;
             }
-
-            _onRead.call(Task.State.TERM);
-
-            while (_onRead.state != Task.State.TERM)
+            else if (len == 0)
             {
-                Thread.sleep(0.msecs);
+                return -1;
             }
-        }
-
-        if (_onWrite.state != Task.State.TERM)
-        {
-            while (_onWrite.state != Task.State.HOLD)
+            else
             {
-                Thread.sleep(50.msecs);
-            }
-
-            _onWrite.call(Task.State.TERM);
-
-            while (_onWrite.state != Task.State.TERM)
-            {
-                Thread.sleep(0.msecs);
-            }
-        }
-    }
-
-    private void waitTaskHold()
-    {
-        while ((_onRead.state != Task.State.TERM) && (_onRead.state != Task.State.HOLD))
-        {
-            Thread.sleep(50.msecs);
-        }
-
-        while ((_onWrite.state != Task.State.TERM) && (_onWrite.state != Task.State.HOLD))
-        {
-            Thread.sleep(50.msecs);
-        }
-    }
-
-    void weakup(EventType et)
-    {
-        if (!_selector.runing || _closing)
-        {
-            return;
-        }
-
-        final switch (et)
-        {
-        case EventType.READ:
-            _onRead.call(Task.State.PROCESSING);
-            break;
-        case EventType.WRITE:
-            synchronized (_sendLock.reader)
-            {
-                if (!_writeQueue.empty() || (_lastWriteOffset > 0))
+                if (errno == EINTR)
                 {
-                    _onWrite.call(Task.State.PROCESSING);
+                    continue;
+                }
+                else if (errno == EAGAIN || errno == EWOULDBLOCK)
+                {
+                    break;
+                }
+                else
+                {
+                    return -2;
                 }
             }
-            break;
-        case EventType.ACCEPT:
-        case EventType.READWRITE:
-            break;
         }
+
+        if ((data.length > 0) && (_selector.onReceive !is null))
+        {
+            _selector.onReceive(this, data);
+        }
+
+        return data.length;
     }
 
-    private static void read(shared Task _task)
+    int write()
     {
-        Task task        = cast(Task)_task;
-        TcpClient client = task.client;
-
-        while (task.yield(Task.State.HOLD) != Task.State.TERM)
+        while (!_closing && (!_writeQueue.empty() || (_lastWriteOffset > 0)))
         {
-            ubyte[]     data;
-            ubyte[4096] buffer;
-
-            while (client._selector.runing && !client._closing && client.isAlive)
+            if (_writingData.length == 0)
             {
-                long len = client._socket.receive(buffer);
+                synchronized (_sendLock.writer)
+                {
+                    _writingData     = _writeQueue.front;
+                    _writeQueue.popFront();
+                    _lastWriteOffset = 0;
+                }
+            }
+
+            while (!_closing && (_lastWriteOffset < _writingData.length))
+            {
+                long len = _socket.send(_writingData[cast(uint)_lastWriteOffset .. $]);
 
                 if (len > 0)
                 {
-                    data ~= buffer[0 .. cast(uint)len];
+                    _lastWriteOffset += len;
 
                     continue;
                 }
                 else if (len == 0)
                 {
-                    version (linux)
-                    {
-                        client._selector.removeClient(client.fd);
-                    }
-                    data = null;
+                    //_selector.removeClient(fd);
 
-                    break;
+                    if (_lastWriteOffset < _writingData.length)
+                    {
+                        if (_selector.onSendCompleted !is null)
+                        {
+                            _selector.onSendCompleted(_fd, _remoteAddress, _writingData, cast(size_t)_lastWriteOffset);
+                        }
+
+                        debug writefln("The sending is incomplete, the total length is %d, but actually sent only %d.", _writingData.length, _lastWriteOffset);
+                    }
+
+                    _writingData.length = 0;
+                    _lastWriteOffset    = 0;
+
+                    return -1; // sending is break and incomplete.
                 }
                 else
                 {
@@ -172,116 +127,43 @@ class TcpClient : TcpStream
                     }
                     else if (errno == EAGAIN || errno == EWOULDBLOCK)
                     {
-                        break;
+                        if (_currentEventType != EventType.READWRITE)
+                        {
+                            _selector.reregister(fd, EventType.READWRITE);
+                            _currentEventType = EventType.READWRITE;
+                        }
+
+                        return 0; // Wait eventloop notify to continue again;
                     }
                     else
                     {
-                        data = null;
+                        _writingData.length = 0;
+                        _lastWriteOffset    = 0;
 
-                        break;
+                        return -2; // Some error.
                     }
                 }
             }
 
-            if ((data.length > 0) && (client._selector.onReceive !is null))
+            if (_lastWriteOffset == _writingData.length)
             {
-                client._selector.onReceive(client, data);
+                if (_selector.onSendCompleted !is null)
+                {
+                    _selector.onSendCompleted(_fd, _remoteAddress, _writingData, cast(size_t)_lastWriteOffset);
+                }
+
+                _writingData.length = 0;
+                _lastWriteOffset    = 0;
             }
         }
-    }
 
-    private static void write(shared Task _task)
-    {
-        Task task        = cast(Task)_task;
-        TcpClient client = task.client;
-
-        first: while (task.yield(Task.State.HOLD) != Task.State.TERM)
+        if (_writeQueue.empty() && (_writingData.length == 0) && (_currentEventType == EventType.READWRITE))
         {
-            second: while (client._selector.runing && !client._closing && client.isAlive && (!client._writeQueue.empty() || (client._lastWriteOffset > 0)))
-            {
-                if (client._writingData.length == 0)
-                {
-                    synchronized (client._sendLock.writer)
-                    {
-                        client._writingData     = client._writeQueue.front;
-                        client._writeQueue.popFront();
-                        client._lastWriteOffset = 0;
-                    }
-                }
-
-                while (client._selector.runing && !client._closing && client.isAlive && (client._lastWriteOffset < client._writingData.length))
-                {
-                    long len = client._socket.send(client._writingData[cast(uint)client._lastWriteOffset .. $]);
-
-                    if (len > 0)
-                    {
-                        client._lastWriteOffset += len;
-
-                        continue;
-                    }
-                    else if (len == 0)
-                    {
-                        //client._selector.removeClient(fd);
-
-                        if (client._lastWriteOffset < client._writingData.length)
-                        {
-                            if (client._selector.onSendCompleted !is null)
-                            {
-                                client._selector.onSendCompleted(client._fd, client._remoteAddress, client._writingData, cast(size_t)client._lastWriteOffset);
-                            }
-
-                            debug writefln("The sending is incomplete, the total length is %d, but actually sent only %d.", client._writingData.length, client._lastWriteOffset);
-                        }
-
-                        client._writingData.length = 0;
-                        client._lastWriteOffset    = 0;
-
-                        continue first; // sending is break and incomplete.
-                    }
-                    else
-                    {
-                        if (errno == EINTR)
-                        {
-                            continue;
-                        }
-                        else if (errno == EAGAIN || errno == EWOULDBLOCK)
-                        {
-                            if (client._currentEventType != EventType.READWRITE)
-                            {
-                                client._selector.reregister(client.fd, EventType.READWRITE);
-                                client._currentEventType = EventType.READWRITE;
-                            }
-
-                            continue first; // Wait eventloop notify to continue again;
-                        }
-                        else
-                        {
-                            client._writingData.length = 0;
-                            client._lastWriteOffset    = 0;
-
-                            continue first; // Some error.
-                        }
-                    }
-                }
-
-                if (client._lastWriteOffset == client._writingData.length)
-                {
-                    if (client._selector.onSendCompleted !is null)
-                    {
-                        client._selector.onSendCompleted(client._fd, client._remoteAddress, client._writingData, cast(size_t)client._lastWriteOffset);
-                    }
-
-                    client._writingData.length = 0;
-                    client._lastWriteOffset    = 0;
-                }
-            }
-
-            if (client._writeQueue.empty() && (client._writingData.length == 0) && (client._currentEventType == EventType.READWRITE))
-            {
-                client._selector.reregister(client.fd, EventType.READ);
-                client._currentEventType = EventType.READ;
-            }
+            _selector.reregister(fd, EventType.READ);
+            _currentEventType = EventType.READ;
         }
+
+        return 0;
     }
 
     int send(ubyte[] data)
@@ -301,67 +183,10 @@ class TcpClient : TcpStream
             _writeQueue ~= data;
         }
 
-        weakup(EventType.WRITE);  // First write direct, and when it encounter EAGAIN, it will open the EVENT notification.
+        write();  // First write direct, and when it encounter EAGAIN, it will open the EVENT notification.
 
         return 0;
     }
-
-    /*
-    long send(ubyte[] data)
-    {
-        if ((data.length == 0) || !_selector.runing || _closing || !_socket.isAlive())
-        {
-            return 0;
-        }
-
-        long sent = 0;
-
-        while (_selector.runing && !_closing && isAlive && (sent < data.length))
-        {
-            long len = _socket.send(data[cast(uint)sent .. $]);
-
-            if (len > 0)
-            {
-                sent += len;
-
-                continue;
-            }
-            else if (len == 0)
-            {
-                break;
-            }
-            else
-            {
-                if (errno == EINTR)
-                {
-                    continue;
-                }
-                else if (errno == EAGAIN || errno == EWOULDBLOCK)
-                {
-                    Thread.sleep(50.msecs);
-
-                    continue;
-                }
-                else
-                {
-                    break;
-                }
-            }
-        }
-
-        if (_selector.onSendCompleted !is null)
-        {
-            _selector.onSendCompleted(_fd, _remoteAddress, data, cast(size_t)sent);
-        }
-
-        if (sent != data.length)
-        {
-            debug writefln("The sending is incomplete, the total length is %d, but actually sent only %d.", data.length, sent);
-        }
-
-        return sent;
-    }
-    */
 
     void close(int errno = 0)
     {
@@ -376,8 +201,6 @@ class TcpClient : TcpStream
         {
             _selector.onDisConnected(_fd, _remoteAddress);
         }
-
-        waitTaskHold();
 
         _socket.shutdown(SocketShutdown.BOTH);
         _socket.close();
@@ -397,7 +220,7 @@ class TcpClient : TcpStream
     {
         if (isAlive)
         {
-            _selector.removeClient(fd);
+            _selector.removeClient(this);
         }
     }
 
@@ -413,7 +236,4 @@ private:
     int              _fd;
     EventType        _currentEventType;
     shared bool      _closing;
-
-    Task             _onRead;
-    Task             _onWrite;
 }

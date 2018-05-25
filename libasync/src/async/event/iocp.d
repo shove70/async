@@ -10,8 +10,6 @@ import core.stdc.errno;
 import core.sys.windows.windows;
 import core.sys.windows.winsock2;
 import core.sys.windows.mswsock;
-import core.sync.mutex;
-import core.thread;
 
 import std.socket;
 
@@ -19,8 +17,6 @@ import async.event.selector;
 import async.net.tcpstream;
 import async.net.tcplistener;
 import async.net.tcpclient;
-import async.container.map;
-import async.pool;
 
 alias LoopSelector = Iocp;
 
@@ -111,7 +107,7 @@ class Iocp : Selector
 
                 if (client !is null)
                 {
-                    removeClient(ev.fd);
+                    removeClient(client);
                 }
 
                 debug writeln("Close event: ", ev.fd);
@@ -135,7 +131,7 @@ class Iocp : Selector
                 break;
             }
 
-            TcpClient client = ThreadPool.instance.take(this, socket);
+            TcpClient client = new TcpClient(this, socket);
             _clients[client.fd] = client;
 
             if (_onConnected !is null)
@@ -151,7 +147,7 @@ class Iocp : Selector
 
             if (client !is null)
             {
-                client.weakup(EventType.READ);
+                client.read();
             }
 
             break;
@@ -160,7 +156,7 @@ class Iocp : Selector
 
             if (client !is null)
             {
-                client.weakup(EventType.READ);
+                client.write();
             }
 
             break;
@@ -175,7 +171,7 @@ class Iocp : Selector
 
             if (client !is null)
             {
-                removeClient(ev.fd, errno);
+                removeClient(client, errno);
             }
 
             debug writeln("Close event: ", ev.fd);

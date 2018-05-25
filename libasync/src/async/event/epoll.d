@@ -10,8 +10,6 @@ import core.sys.posix.signal;
 import core.sys.posix.netinet.tcp;
 import core.sys.posix.netinet.in_;
 import core.sys.posix.time;
-import core.sync.mutex;
-import core.thread;
 
 import std.socket;
 
@@ -19,8 +17,6 @@ import async.event.selector;
 import async.net.tcpstream;
 import async.net.tcplistener;
 import async.net.tcpclient;
-import async.container.map;
-import async.pool;
 
 alias LoopSelector = Epoll;
 
@@ -117,22 +113,22 @@ class Epoll : Selector
 
             if ((events[i].events & (EPOLLHUP | EPOLLERR | EPOLLRDHUP)) != 0)
             {
+                if (errno == EINTR)
+                {
+                    continue;
+                }
+
                 if (fd == _listener.fd)
                 {
                     debug writeln("Listener event error.", fd);
                 }
                 else
                 {
-                    if (errno == EINTR)
-                    {
-                        continue;
-                    }
-
                     TcpClient client = _clients[fd];
 
                     if (client !is null)
                     {
-                        removeClient(fd, errno);
+                        removeClient(client, errno);
                     }
 
                     debug writeln("Close event: ", fd);
@@ -144,7 +140,6 @@ class Epoll : Selector
             if (fd == _listener.fd)
             {
                 Socket socket;
-                int temp_errno = errno; // temp, will be remove.
 
                 try
                 {
@@ -152,18 +147,10 @@ class Epoll : Selector
                 }
                 catch (Exception e)
                 {
-                    // temp, will be remove.
-                    if (temp_errno == EINTR)
-                    {
-                        import std.stdio;
-                        writeln("Epoll accepting exception when EINTR: " ~ e.toString());
-                    }
-                    // temp end.
-
                     continue;
                 }
 
-                TcpClient client = ThreadPool.instance.take(this, socket);
+                TcpClient client = new TcpClient(this, socket);
                 _clients[client.fd] = client;
 
                 if (_onConnected !is null)
@@ -179,7 +166,10 @@ class Epoll : Selector
 
                 if (client !is null)
                 {
-                    client.weakup(EventType.READ);
+                    if (client.read() == -1)
+                    {
+                        removeClient(client);
+                    }
                 }
             }
             else if (events[i].events & EPOLLOUT)
@@ -188,7 +178,7 @@ class Epoll : Selector
 
                 if (client !is null)
                 {
-                    client.weakup(EventType.WRITE);
+                    client.write();
                 }
             }
         }

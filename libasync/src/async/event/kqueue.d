@@ -51,8 +51,6 @@ import core.sys.posix.signal;
 import core.sys.posix.netinet.tcp;
 import core.sys.posix.netinet.in_;
 import core.sys.posix.time;
-import core.sync.mutex;
-import core.thread;
 
 import std.socket;
 
@@ -60,8 +58,6 @@ import async.event.selector;
 import async.net.tcpstream;
 import async.net.tcplistener;
 import async.net.tcpclient;
-import async.container.map;
-import async.pool;
 
 alias LoopSelector = Kqueue;
 
@@ -157,7 +153,7 @@ class Kqueue : Selector
 
                     if (client !is null)
                     {
-                        removeClient(fd, (events[i].flags & EV_EOF) ? 0 : errno);
+                        removeClient(client, (events[i].flags & EV_EOF) ? 0 : errno);
                     }
 
                     debug writeln("Close event: ", fd);
@@ -179,7 +175,7 @@ class Kqueue : Selector
                     continue;
                 }
 
-                TcpClient client = ThreadPool.instance.take(this, socket);
+                TcpClient client = new TcpClient(this, socket);
                 _clients[client.fd] = client;
 
                 if (_onConnected !is null)
@@ -195,7 +191,7 @@ class Kqueue : Selector
 
                 if (client !is null)
                 {
-                    client.weakup(EventType.READ);
+                    client.read();
                 }
             }
             else if (events[i].filter == EVFILT_WRITE)
@@ -204,7 +200,7 @@ class Kqueue : Selector
 
                 if (client !is null)
                 {
-                    client.weakup(EventType.WRITE);
+                    client.write();
                 }
             }
         }
