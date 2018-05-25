@@ -1,0 +1,18 @@
+message LoginRequest
+{
+    string  idOrMobile;
+    string  password;
+    string  UDID;
+    string  remoteAddress;          // value: "__SERVER__CLIENT_ADDRESS__"
+}
+
+message LoginResponse
+{
+    int16   result;
+    string  description;
+
+    uint64  userId;
+    string  token;
+    string  name;
+    string  mobile;
+}

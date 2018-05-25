@@ -5,20 +5,26 @@ import std.concurrency;
 import core.thread;
 import core.stdc.errno;
 import core.atomic;
+import std.bitmanip;
 
-int size = 10000;
+import buffer.message;
+import cryption.rsa;
+
+mixin(LoadBufferFile!"account.buffer");
+
+__gshared RSAKeyInfo publicKey;
+
 
 void main(string[] argv)
 {
-    ubyte[] data = new ubyte[size];
-    data[0] = 1;
-    data[$ - 1] = 2;
-
+    publicKey = RSA.decodeKey("AAAAIH4RaeCOInmS/CcWOrurajxk3dZ4XGEZ9MsqT3LnFqP3/uk=");
+    Message.settings(615, publicKey, true);
+    
     for (int i = 0; i < 10; i++)
     {
         new Thread(
             {
-                go(data);
+                go();
             }
         ).start();
     }
@@ -26,18 +32,35 @@ void main(string[] argv)
 
 shared long total = 0;
 
-private void go(ubyte[] data)
+private void go()
 {
     for (int i = 0; i < 100000; i++)
     {
+        i++;
+        LoginRequest req = new LoginRequest();
+        req.idOrMobile = "userId";
+        req.password   = "******";
+        req.UDID       = "ABCD-EFDG-DDDD-1223";
+        req.remoteAddress = "__SERVER__CLIENT_ADDRESS__";
+        ubyte[] buf = req.serialize("login");
+
         TcpSocket socket = new TcpSocket();
         socket.blocking = true;
-        socket.connect(new InternetAddress("127.0.0.1", 12290));
+        
+        try
+        {
+            socket.connect(new InternetAddress("14.17.66.149", 12290));
+        }
+        catch(Exception e)
+        {
+            writeln(e.toString());
+            continue;
+        }
 
         long len;
-        for (size_t off; off < data.length; off += len)
+        for (size_t off; off < buf.length; off += len)
         {
-            len = socket.send(data[off..$]);
+            len = socket.send(buf[off..$]);
 
             if (len > 0)
             {
@@ -59,12 +82,48 @@ private void go(ubyte[] data)
             }
         }
 
-        ubyte[] buffer = new ubyte[size];
+        ubyte[] buffer;
 
-        len = 0;
-        for (size_t off; off < buffer.length; off += len)
+        buf = new ubyte[ushort.sizeof];
+        len = socket.receive(buf);
+
+        if (len != ushort.sizeof)
         {
-            len = socket.receive(buffer[off..$]);
+            writeln("Socket error at receive1. Local socket: ", socket.localAddress().toString());
+            socket.close();
+
+            return;
+        }
+
+        if (buf.peek!ushort(0) != 615)
+        {
+            writeln("Head isn't 407. Local socket: ", socket.localAddress().toString());
+            socket.close();
+
+            return;
+        }
+
+        buffer ~= buf;
+        
+        buf = new ubyte[int.sizeof];
+        len = socket.receive(buf);
+
+        if (len != int.sizeof)
+        {
+            writeln("Socket error at receive2. Local socket: ", socket.localAddress().toString());
+            socket.close();
+
+            return;
+        }
+        
+        size_t size = buf.peek!int(0);
+        buffer ~= buf;
+
+        buf = new ubyte[size];
+        len = 0;
+        for (size_t off; off < buf.length; off += len)
+        {
+            len = socket.receive(buf[off..$]);
 
             if (len > 0)
             {
@@ -79,17 +138,20 @@ private void go(ubyte[] data)
             }
             else
             {
-                writeln("Socket error at receive. Local socket: ", socket.localAddress().toString());
+                writeln("Socket error at receive3. Local socket: ", socket.localAddress().toString());
                 socket.close();
 
                 return;
             }
         }
 
-        core.atomic.atomicOp!"+="(total, 1);
-        writeln(total.to!string, ": receive: ", "[0]: ", buffer[0], ", [$ - 1]: ", buffer[$ - 1]);
+        buffer ~= buf;
 
+        core.atomic.atomicOp!"+="(total, 1);
         socket.shutdown(SocketShutdown.BOTH);
         socket.close();
+        
+        LoginResponse res = Message.deserialize!LoginResponse(buffer);
+        writefln("result: %d, description: %s, userId: %d, token: %s, name: %s, mobile: %s", res.result, res.description, res.userId, res.token, res.name, res.mobile);
     }
 }

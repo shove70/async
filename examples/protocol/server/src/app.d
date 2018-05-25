@@ -2,42 +2,38 @@ import std.stdio;
 import std.conv;
 import std.socket;
 import std.exception;
-import std.bitmanip;
 
 import core.sync.mutex;
 
 import async;
 import async.container.bytebuffer;
-import buffer;
-import buffer.rpc.server;
-import cryption.rsa;
-
-import package_business;
-
-__gshared Server!(Business) business;
 
 __gshared ByteBuffer[int] queue;
+__gshared int size = 10000;
 __gshared Mutex lock;
 
 void main()
 {
-    RSAKeyInfo privateKey = RSA.decodeKey("AAAAIH4RaeCOInmS/CcWOrurajxk3dZ4XGEZ9MsqT3LnFqP3HnO6WmZVW8rflcb5nHsl9Ga9U4NdPO7cDC2WQ8Y02LE=");
-    Message.settings(615, privateKey, true);
-
     lock = new Mutex();
-    business = new Server!(Business)();
 
-    EventLoopGroup group = new EventLoopGroup(&createEventLoop);
+    EventLoopGroup group = new EventLoopGroup(&createEventLoop);  // Use the thread group, thread num: totalCPUs
     group.run();
 
     group.stop();
+
+//    Not use group:
+
+//    EventLoop loop = createEventLoop();
+//    loop.run();
+//
+//    loop.stop();
 }
 
 EventLoop createEventLoop()
 {
     TcpListener listener = new TcpListener();
     listener.bind(new InternetAddress("0.0.0.0", 12290));
-    listener.listen(1024);
+    listener.listen(10);
 
     return new EventLoop(listener, &onConnected, &onDisConnected, &onReceive, &onSendCompleted, &onSocketError);
 }
@@ -73,7 +69,7 @@ void onReceive(TcpClient client, in ubyte[] data) nothrow @trusted
 
             queue[client.fd] ~= data;
 
-            size_t len = findCompleteMessage(client, queue[client.fd]);
+            size_t len = findCompleteMessage(queue[client.fd]);
             if (len == 0)
             {
                 return;
@@ -83,8 +79,8 @@ void onReceive(TcpClient client, in ubyte[] data) nothrow @trusted
             queue[client.fd].popFront(len);
         }
 
-        ubyte[] ret_data = business.Handler(buffer, client.remoteAddress.toAddrString());
-        client.send(ret_data);
+        writefln("Receive from %s: %d, fd: %d", client.remoteAddress().toString(), buffer.length, client.fd);
+        client.send(buffer); // echo
     }());
 }
 
@@ -109,30 +105,12 @@ void onSendCompleted(int fd, string remoteAddress, in ubyte[] data, size_t sent_
     }());
 }
 
-size_t findCompleteMessage(TcpClient client, ref ByteBuffer data)
+private size_t findCompleteMessage(ref ByteBuffer data)
 {
-    if (data.length < (ushort.sizeof + int.sizeof))
+    if (data.length < size)
     {
         return 0;
     }
 
-    ubyte[] head = data[0 .. ushort.sizeof + int.sizeof];
-
-    if (head.peek!ushort(0) != 615)
-    {
-        string remoteAddress = client.remoteAddress().toString();
-        client.forceClose();
-        writeln("Socket Error: " ~ remoteAddress ~ ", An unusual message data!");
-
-        return 0;
-    }
-
-    size_t len = head.peek!int(ushort.sizeof);
-
-    if (data.length < (len + (ushort.sizeof + int.sizeof)))
-    {
-        return 0;
-    }
-
-    return len + (ushort.sizeof + int.sizeof);
+    return size;
 }
