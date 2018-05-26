@@ -6,6 +6,7 @@ import core.thread;
 import core.stdc.errno;
 import core.atomic;
 import std.bitmanip;
+import std.datetime;
 
 import buffer.message;
 import cryption.rsa;
@@ -40,13 +41,13 @@ private void go()
         LoginRequest req = new LoginRequest();
         req.idOrMobile = "userId";
         req.password   = "******";
-        req.UDID       = "ABCD-EFDG-DDDD-1223";
+        req.UDID       = Clock.currTime().toUnixTime().to!string;
         req.remoteAddress = "__SERVER__CLIENT_ADDRESS__";
         ubyte[] buf = req.serialize("login");
 
         TcpSocket socket = new TcpSocket();
         socket.blocking = true;
-        
+
         try
         {
             socket.connect(new InternetAddress("127.0.0.1", 12290));
@@ -152,6 +153,6 @@ private void go()
         socket.close();
         
         LoginResponse res = Message.deserialize!LoginResponse(buffer);
-        writefln("result: %d, description: %s, userId: %d, token: %s, name: %s, mobile: %s", res.result, res.description, res.userId, res.token, res.name, res.mobile);
+        writefln("result: %d, description: %s, userId: %d, token: %s, name: %s, mobile: %s", res.result, res.description, res.userId, res.token, res.name, (Clock.currTime() - SysTime.fromUnixTime(res.mobile.to!long)).total!"seconds");
     }
 }

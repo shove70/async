@@ -24,7 +24,7 @@ class TcpClient : TcpStream
         _selector           = selector;
         _sendLock           = new ReadWriteMutex(ReadWriteMutex.Policy.PREFER_WRITERS);
 
-        _remoteAddress      = (remoteAddress !is null) ? remoteAddress.toString() : string.init;
+        _remoteAddress      = remoteAddress.toString();
         _fd                 = fd;
         _currentEventType   = EventType.READ;
         _closing            = false;
@@ -37,7 +37,7 @@ class TcpClient : TcpStream
         ubyte[]     data;
         ubyte[4096] buffer;
 
-        while (!_closing)
+        while (!_closing && isAlive)
         {
             long len = _socket.receive(buffer);
 
@@ -78,7 +78,7 @@ class TcpClient : TcpStream
 
     int write()
     {
-        while (!_closing && (!_writeQueue.empty() || (_lastWriteOffset > 0)))
+        while (!_closing && isAlive && (!_writeQueue.empty() || (_lastWriteOffset > 0)))
         {
             if (_writingData.length == 0)
             {
@@ -90,7 +90,7 @@ class TcpClient : TcpStream
                 }
             }
 
-            while (!_closing && (_lastWriteOffset < _writingData.length))
+            while (!_closing && isAlive && (_lastWriteOffset < _writingData.length))
             {
                 long len = _socket.send(_writingData[cast(uint)_lastWriteOffset .. $]);
 
