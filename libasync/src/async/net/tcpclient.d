@@ -24,7 +24,7 @@ class TcpClient : TcpStream
         _selector           = selector;
         _sendLock           = new ReadWriteMutex(ReadWriteMutex.Policy.PREFER_WRITERS);
 
-        _remoteAddress      = remoteAddress.toString();
+        _remoteAddress      = (remoteAddress !is null) ? remoteAddress.toString() : string.init;
         _fd                 = fd;
         _currentEventType   = EventType.READ;
         _closing            = false;

@@ -60,12 +60,12 @@ abstract class TcpStream
 
     @property Address remoteAddress()
     {
-        return _socket.remoteAddress();
+        return _socket.isAlive() ? _socket.remoteAddress() : null;
     }
 
     @property Address localAddress()
     {
-        return _socket.localAddress();
+        return _socket.isAlive() ? _socket.localAddress() : null;
     }
 
     @property bool isAlive()

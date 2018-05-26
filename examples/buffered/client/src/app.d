@@ -49,7 +49,7 @@ private void go()
         
         try
         {
-            socket.connect(new InternetAddress("14.17.66.149", 12290));
+            socket.connect(new InternetAddress("127.0.0.1", 12290));
         }
         catch(Exception e)
         {

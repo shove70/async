@@ -7,7 +7,7 @@ import std.bitmanip;
 import core.sync.mutex;
 
 import async;
-import async.container.bytebuffer;
+import async.container;
 import buffer;
 import buffer.rpc.server;
 import cryption.rsa;
@@ -19,13 +19,16 @@ __gshared Server!(Business) business;
 __gshared ByteBuffer[int] queue;
 __gshared Mutex lock;
 
+ThreadPool businessPool;
+
 void main()
 {
     RSAKeyInfo privateKey = RSA.decodeKey("AAAAIH4RaeCOInmS/CcWOrurajxk3dZ4XGEZ9MsqT3LnFqP3HnO6WmZVW8rflcb5nHsl9Ga9U4NdPO7cDC2WQ8Y02LE=");
     Message.settings(615, privateKey, true);
 
-    lock = new Mutex();
-    business = new Server!(Business)();
+    lock         = new Mutex();
+    businessPool = new ThreadPool();
+    business     = new Server!(Business)();
 
     EventLoopGroup group = new EventLoopGroup(&createEventLoop);
     group.run();
@@ -83,9 +86,14 @@ void onReceive(TcpClient client, in ubyte[] data) nothrow @trusted
             queue[client.fd].popFront(len);
         }
 
-        ubyte[] ret_data = business.Handler(buffer, client.remoteAddress.toAddrString());
-        client.send(ret_data);
+        businessPool.doWork!businessHandle(client, buffer, client.remoteAddress.toAddrString());
     }());
+}
+
+void businessHandle(TcpClient client, ubyte[] buffer, string remoteAddress)
+{
+    ubyte[] ret_data = business.Handler(buffer, remoteAddress);
+    client.send(ret_data);
 }
 
 void onSocketError(int fd, string remoteAddress, string msg) nothrow @trusted

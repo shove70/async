@@ -6,7 +6,7 @@ import std.exception;
 import core.sync.mutex;
 
 import async;
-import async.container.bytebuffer;
+import async.container;
 
 __gshared ByteBuffer[int] queue;
 __gshared int size = 10000;
