@@ -86,13 +86,13 @@ void onReceive(TcpClient client, in ubyte[] data) nothrow @trusted
             queue[client.fd].popFront(len);
         }
 
-        businessPool.doWork!businessHandle(client, buffer, client.remoteAddress.toAddrString());
+        businessPool.doWork!businessHandle(client, buffer);
     }());
 }
 
-void businessHandle(TcpClient client, ubyte[] buffer, string remoteAddress)
+void businessHandle(TcpClient client, ubyte[] buffer)
 {
-    ubyte[] ret_data = business.Handler(buffer, remoteAddress);
+    ubyte[] ret_data = business.Handler(buffer, client.remoteAddress.toAddrString());
     client.send(ret_data);
 }
 
