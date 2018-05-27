@@ -204,9 +204,6 @@ class TcpClient : TcpStream
 
         _socket.shutdown(SocketShutdown.BOTH);
         _socket.close();
-
-        _fd            = -1;
-        _remoteAddress = string.init;
     }
 
     /*

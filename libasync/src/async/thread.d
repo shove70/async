@@ -4,11 +4,11 @@ import std.parallelism;
 
 class ThreadPool
 {
-    this(int poolSize = totalCPUs * 2 + 2)
+    this(int poolSize = totalCPUs * 32)
     {
         if (poolSize <= 0)
         {
-            poolSize = totalCPUs * 2 + 2;
+            poolSize = totalCPUs * 32;
         }
 
         defaultPoolThreads(poolSize);

@@ -15,13 +15,12 @@ mixin(LoadBufferFile!"account.buffer");
 
 __gshared RSAKeyInfo publicKey;
 
-
 void main(string[] argv)
 {
     publicKey = RSA.decodeKey("AAAAIH4RaeCOInmS/CcWOrurajxk3dZ4XGEZ9MsqT3LnFqP3/uk=");
     Message.settings(615, publicKey, true);
     
-    for (int i = 0; i < 10; i++)
+    for (int i = 0; i < 1000; i++)
     {
         new Thread(
             {
