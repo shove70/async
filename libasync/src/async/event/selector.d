@@ -176,7 +176,7 @@ protected:
 
         if (client !is null)
         {
-            client.weakup(TaskType.READ);
+            client.weakup(EventType.READ);
         }
     }
 
@@ -186,7 +186,7 @@ protected:
 
         if (client !is null)
         {
-            client.weakup(TaskType.WRITE);
+            client.weakup(EventType.WRITE);
         }
     }
 

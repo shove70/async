@@ -16,11 +16,6 @@ import async.eventloop;
 import async.net.tcpstream;
 import async.container.bytebuffer;
 
-enum TaskType
-{
-    READ, WRITE, CLOSE, ERROR
-}
-
 class TcpClient : TcpStream
 {
     this(Selector selector, Socket socket)
@@ -30,8 +25,6 @@ class TcpClient : TcpStream
         _selector           = selector;
         _hasReadEvent       = false;
         _hasWriteEvent      = false;
-        _hasCloseEvent      = false;
-        _hasErrorEvent      = false;
         _reading            = false;
         _writing            = false;
         _sendLock           = new ReadWriteMutex(ReadWriteMutex.Policy.PREFER_WRITERS);
@@ -44,23 +37,20 @@ class TcpClient : TcpStream
         _lastWriteOffset    = 0;
     }
 
-    void weakup(TaskType task)
+    void weakup(EventType event)
     {
-        final switch (task)
+        final switch (event)
         {
-        case TaskType.READ:
+        case EventType.READ:
             _hasReadEvent = true;
             beginRead();
             break;
-        case TaskType.WRITE:
+        case EventType.WRITE:
             _hasWriteEvent = true;
             beginWrite();
             break;
-        case TaskType.CLOSE:
-            _hasCloseEvent = true;
-            break;
-        case TaskType.ERROR:
-            _hasErrorEvent = true;
+        case EventType.ACCEPT:
+        case EventType.READWRITE:
             break;
         }
     }
@@ -276,7 +266,7 @@ public:
             _writeQueue ~= data;
         }
 
-        weakup(TaskType.WRITE);  // First write direct, and when it encounter EAGAIN, it will open the EVENT notification.
+        weakup(EventType.WRITE);  // First write direct, and when it encounter EAGAIN, it will open the EVENT notification.
 
         return 0;
     }
@@ -314,8 +304,6 @@ private:
     Selector         _selector;
     shared bool      _hasReadEvent;
     shared bool      _hasWriteEvent;
-    shared bool      _hasCloseEvent;
-    shared bool      _hasErrorEvent;
     shared bool      _reading;
     shared bool      _writing;
 
