@@ -103,13 +103,7 @@ class Iocp : Selector
 
             if (ev && ev.fd)
             {
-                TcpClient client = _clients[ev.fd];
-
-                if (client !is null)
-                {
-                    removeClient(client);
-                }
-
+                removeClient(ev.fd);
                 debug writeln("Close event: ", ev.fd);
 
                 return;
@@ -120,44 +114,15 @@ class Iocp : Selector
         switch (ev.operation)
         {
         case IocpOperation.accept:
-            Socket socket;
-
-            try
-            {
-                socket = _listener.accept();
-            }
-            catch (Exception e)
-            {
-                break;
-            }
-
-            TcpClient client = new TcpClient(this, socket);
-            _clients[client.fd] = client;
-
-            if (_onConnected !is null)
-            {
-                _onConnected(client);
-            }
-
-            register(client.fd, EventType.READ);
+            accept();
 
             break;
         case IocpOperation.connect:
-            TcpClient client = _clients[ev.fd];
-
-            if (client !is null)
-            {
-                client.read();
-            }
+            read(ev.fd);
 
             break;
         case IocpOperation.read:
-            TcpClient client = _clients[ev.fd];
-
-            if (client !is null)
-            {
-                client.write();
-            }
+            write(ev.fd);
 
             break;
         case IocpOperation.write:
@@ -167,13 +132,7 @@ class Iocp : Selector
 
             break;
         case IocpOperation.close:
-            TcpClient client = _clients[ev.fd];
-
-            if (client !is null)
-            {
-                removeClient(client, errno);
-            }
-
+            removeClient(ev.fd);
             debug writeln("Close event: ", ev.fd);
 
             break;

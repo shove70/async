@@ -10,6 +10,8 @@ else
     import core.sys.posix.unistd;
 }
 
+import std.socket;
+
 import async.net.tcplistener;
 import async.net.tcpclient;
 import async.container.map;
@@ -30,10 +32,10 @@ abstract class Selector
     this(TcpListener listener, OnConnected onConnected, OnDisConnected onDisConnected, OnReceive onReceive, OnSendCompleted onSendCompleted, OnSocketError onSocketError)
     {
         this._onConnected    = onConnected;
-        this.onDisConnected  = onDisConnected;
+        this._onDisConnected = onDisConnected;
         this.onReceive       = onReceive;
         this.onSendCompleted = onSendCompleted;
-        this.onSocketError   = onSocketError;
+        this._onSocketError  = onSocketError;
 
         _clients  = new Map!(int, TcpClient);
         _listener = listener;
@@ -50,9 +52,9 @@ abstract class Selector
 
     void startLoop()
     {
-        runing = true;
+        _runing = true;
 
-        while (runing)
+        while (_runing)
         {
             handleEvent();
         }
@@ -60,7 +62,7 @@ abstract class Selector
 
     void stop()
     {
-        runing = false;
+        _runing = false;
     }
 
     void dispose()
@@ -98,11 +100,84 @@ abstract class Selector
         }
     }
 
-    void removeClient(TcpClient client, int errno = 0)
+    void removeClient(int fd, int errno = 0)
     {
-        unregister(client.fd);
-        _clients.remove(client.fd);
-        client.close(errno);
+        unregister(fd);
+
+        TcpClient client = _clients[fd];
+
+        if (client !is null)
+        {
+            if ((errno != 0) && (_onSocketError !is null))
+            {
+                _onSocketError(fd, client._remoteAddress, formatSocketError(errno));
+            }
+
+            if (_onDisConnected !is null)
+            {
+                _onDisConnected(fd, client._remoteAddress);
+            }
+
+            client.close();
+        }
+
+        _clients.remove(fd);
+    }
+
+protected:
+
+    void accept()
+    {
+        Socket socket;
+
+        try
+        {
+            socket = _listener.accept();
+        }
+        catch (Exception e)
+        {
+            return;
+        }
+
+        TcpClient client = new TcpClient(this, socket);
+        _clients[client.fd] = client;
+
+        if (_onConnected !is null)
+        {
+            _onConnected(client);
+        }
+
+        register(client.fd, EventType.READ);
+    }
+
+    void read(int fd)
+    {
+        TcpClient client = _clients[fd];
+
+        if (client !is null)
+        {
+            version (Linux)
+            {
+                if (client.read() == -1)
+                {
+                    removeClient(fd);
+                }
+            }
+            else
+            {
+                client.read();
+            }
+        }
+    }
+
+    void write(int fd)
+    {
+        TcpClient client = _clients[fd];
+
+        if (client !is null)
+        {
+            client.write();
+        }
     }
 
 protected:
@@ -111,18 +186,19 @@ protected:
     TcpListener          _listener;
     int                  _eventHandle;
 
+    void handleEvent();
+
+private:
+
+    bool                 _runing;
     Map!(int, TcpClient) _clients;
 
     OnConnected          _onConnected;
-
-    void handleEvent();
+    OnDisConnected       _onDisConnected;
+    OnSocketError        _onSocketError;
 
 public:
 
-    bool                 runing;
-
-    OnDisConnected       onDisConnected;
     OnReceive            onReceive;
     OnSendCompleted      onSendCompleted;
-    OnSocketError        onSocketError;
 }

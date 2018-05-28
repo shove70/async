@@ -124,13 +124,7 @@ class Epoll : Selector
                 }
                 else
                 {
-                    TcpClient client = _clients[fd];
-
-                    if (client !is null)
-                    {
-                        removeClient(client, errno);
-                    }
-
+                    removeClient(fd, errno);
                     debug writeln("Close event: ", fd);
                 }
 
@@ -139,47 +133,15 @@ class Epoll : Selector
 
             if (fd == _listener.fd)
             {
-                Socket socket;
-
-                try
-                {
-                    socket = _listener.accept();
-                }
-                catch (Exception e)
-                {
-                    continue;
-                }
-
-                TcpClient client = new TcpClient(this, socket);
-                _clients[client.fd] = client;
-
-                if (_onConnected !is null)
-                {
-                    _onConnected(client);
-                }
-
-                register(client.fd, EventType.READ);
+                accept();
             }
             else if (events[i].events & EPOLLIN)
             {
-                TcpClient client = _clients[fd];
-
-                if (client !is null)
-                {
-                    if (client.read() == -1)
-                    {
-                        removeClient(client);
-                    }
-                }
+                read(fd);
             }
             else if (events[i].events & EPOLLOUT)
             {
-                TcpClient client = _clients[fd];
-
-                if (client !is null)
-                {
-                    client.write();
-                }
+                write(fd);
             }
         }
     }

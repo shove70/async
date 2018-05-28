@@ -149,13 +149,7 @@ class Kqueue : Selector
                 }
                 else
                 {
-                    TcpClient client = _clients[fd];
-
-                    if (client !is null)
-                    {
-                        removeClient(client, (events[i].flags & EV_EOF) ? 0 : errno);
-                    }
-
+                    removeClient(fd, (events[i].flags & EV_EOF) ? 0 : errno);
                     debug writeln("Close event: ", fd);
                 }
 
@@ -164,44 +158,15 @@ class Kqueue : Selector
 
             if (fd == _listener.fd)
             {
-                Socket socket;
-
-                try
-                {
-                    socket = _listener.accept();
-                }
-                catch (Exception e)
-                {
-                    continue;
-                }
-
-                TcpClient client = new TcpClient(this, socket);
-                _clients[client.fd] = client;
-
-                if (_onConnected !is null)
-                {
-                    _onConnected(client);
-                }
-
-                register(client.fd, EventType.READ);
+                accept();
             }
             else if (events[i].filter == EVFILT_READ)
             {
-                TcpClient client = _clients[fd];
-
-                if (client !is null)
-                {
-                    client.read();
-                }
+                read(fd);
             }
             else if (events[i].filter == EVFILT_WRITE)
             {
-                TcpClient client = _clients[fd];
-
-                if (client !is null)
-                {
-                    client.write();
-                }
+                write(fd);
             }
         }
     }

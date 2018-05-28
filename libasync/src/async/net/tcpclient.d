@@ -188,19 +188,9 @@ class TcpClient : TcpStream
         return 0;
     }
 
-    void close(int errno = 0)
+    void close()
     {
         _closing = true;
-
-        if ((errno != 0) && (_selector.onSocketError !is null))
-        {
-            _selector.onSocketError(_fd, _remoteAddress, formatSocketError(errno));
-        }
-
-        if (_selector.onDisConnected !is null)
-        {
-            _selector.onDisConnected(_fd, _remoteAddress);
-        }
 
         _socket.shutdown(SocketShutdown.BOTH);
         _socket.close();
@@ -217,9 +207,14 @@ class TcpClient : TcpStream
     {
         if (isAlive)
         {
-            _selector.removeClient(this);
+            _selector.removeClient(fd);
         }
     }
+
+public:
+
+    string           _remoteAddress;
+    int              _fd;
 
 private:
 
@@ -229,8 +224,6 @@ private:
     size_t           _lastWriteOffset;
     ReadWriteMutex   _sendLock;
 
-    string           _remoteAddress;
-    int              _fd;
     EventType        _currentEventType;
     shared bool      _closing;
 }
