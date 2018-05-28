@@ -59,6 +59,8 @@ private:
 
     void beginRead()
     {
+        _hasReadEvent = false;
+
         if (_reading)
         {
             return;
@@ -134,6 +136,8 @@ private:
 
     void beginWrite()
     {
+        _hasWriteEvent = false;
+
         if (_writing)
         {
             return;
