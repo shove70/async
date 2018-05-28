@@ -45,14 +45,14 @@ private void go(ubyte[] data)
             }
             else if (len == 0)
             {
-                writeln("Server socket close at send. Local socket: ", socket.localAddress().toString());
+                writefln("Server socket close at send. Local socket: %s", socket.localAddress().toString());
                 socket.close();
 
                 return;
             }
             else
             {
-                writeln("Socket error at send. Local socket: ", socket.localAddress().toString());
+                writefln("Socket error at send. Local socket: %s, error: %s", socket.localAddress().toString(), formatSocketError(errno));
                 socket.close();
 
                 return;
@@ -72,14 +72,14 @@ private void go(ubyte[] data)
             }
             else if (len == 0)
             {
-                writeln("Server socket close at receive. Local socket: ", socket.localAddress().toString());
+                writefln("Server socket close at receive. Local socket: %s", socket.localAddress().toString());
                 socket.close();
 
                 return;
             }
             else
             {
-                writeln("Socket error at receive. Local socket: ", socket.localAddress().toString());
+                writefln("Socket error at receive. Local socket: %s, error: %s", socket.localAddress().toString(), formatSocketError(errno));
                 socket.close();
 
                 return;
