@@ -20,7 +20,7 @@ void main(string[] argv)
     publicKey = RSA.decodeKey("AAAAIH4RaeCOInmS/CcWOrurajxk3dZ4XGEZ9MsqT3LnFqP3/uk=");
     Message.settings(615, publicKey, true);
     
-    for (int i = 0; i < 1000; i++)
+    for (int i = 0; i < 200; i++)
     {
         new Thread(
             {
@@ -68,14 +68,14 @@ private void go()
             }
             else if (len == 0)
             {
-                writeln("Server socket close at send. Local socket: ", socket.localAddress().toString());
+                writefln("Server socket close at send. Local socket: %s", socket.localAddress().toString());
                 socket.close();
 
                 return;
             }
             else
             {
-                writeln("Socket error at send. Local socket: ", socket.localAddress().toString());
+                writefln("Socket error at send. Local socket: %s, error: %s", socket.localAddress().toString(), formatSocketError(errno));
                 socket.close();
 
                 return;
@@ -89,7 +89,7 @@ private void go()
 
         if (len != ushort.sizeof)
         {
-            writeln("Socket error at receive1. Local socket: ", socket.localAddress().toString());
+            writefln("Socket error at receive1. Local socket: %s, error: %s", socket.localAddress().toString(), formatSocketError(errno));
             socket.close();
 
             return;
@@ -97,7 +97,7 @@ private void go()
 
         if (buf.peek!ushort(0) != 615)
         {
-            writeln("Head isn't 407. Local socket: ", socket.localAddress().toString());
+            writefln("Head isn't 407. Local socket: %s", socket.localAddress().toString());
             socket.close();
 
             return;
@@ -110,7 +110,7 @@ private void go()
 
         if (len != int.sizeof)
         {
-            writeln("Socket error at receive2. Local socket: ", socket.localAddress().toString());
+            writefln("Socket error at receive2. Local socket: %s, error: %s", socket.localAddress().toString(), formatSocketError(errno));
             socket.close();
 
             return;
@@ -131,14 +131,14 @@ private void go()
             }
             else if (len == 0)
             {
-                writeln("Server socket close at receive. Local socket: ", socket.localAddress().toString());
+                writefln("Server socket close at receive. Local socket: %s", socket.localAddress().toString());
                 socket.close();
 
                 return;
             }
             else
             {
-                writeln("Socket error at receive3. Local socket: ", socket.localAddress().toString());
+                writeln("Socket error at receive3. Local socket: %s, error: %s", socket.localAddress().toString(), formatSocketError(errno));
                 socket.close();
 
                 return;
