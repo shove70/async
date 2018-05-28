@@ -16,11 +16,11 @@ import async.net.tcplistener;
 import async.net.tcpclient;
 import async.container.map;
 
-alias OnConnected     = void function(TcpClient);                       nothrow @trusted
-alias OnDisConnected  = void function(int, string);                     nothrow @trusted
-alias OnReceive       = void function(TcpClient, in ubyte[]);           nothrow @trusted
-alias OnSendCompleted = void function(int, string, in ubyte[], size_t); nothrow @trusted
-alias OnSocketError   = void function(int, string, string);             nothrow @trusted
+alias OnConnected     = void function(TcpClient);                     nothrow @trusted
+alias OnDisConnected  = void function(int, string);                   nothrow @trusted
+alias OnReceive       = void function(TcpClient, in ubyte[]);         nothrow @trusted
+alias OnSendCompleted = void function(TcpClient, in ubyte[], size_t); nothrow @trusted
+alias OnSocketError   = void function(int, string, string);           nothrow @trusted
 
 enum EventType
 {
@@ -156,7 +156,7 @@ protected:
 
         if (client !is null)
         {
-            version (Linux)
+            version (linux)
             {
                 if (client.read() == -1)
                 {

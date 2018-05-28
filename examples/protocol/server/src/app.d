@@ -91,16 +91,16 @@ void onSocketError(int fd, string remoteAddress, string msg) nothrow @trusted
     }());
 }
 
-void onSendCompleted(int fd, string remoteAddress, in ubyte[] data, size_t sent_size) nothrow @trusted
+void onSendCompleted(TcpClient client, in ubyte[] data, size_t sent_size) nothrow @trusted
 {
     collectException({
         if (sent_size != data.length)
         {
-            writefln("Send to %s Error. Original size: %d, sent: %d, fd: %d", remoteAddress, data.length, sent_size, fd);
+            writefln("Send to %s Error. Original size: %d, sent: %d, fd: %d", client.remoteAddress().toString(), data.length, sent_size, client.fd);
         }
         else
         {
-            writefln("Sent to %s completed, Size: %d, fd: %d", remoteAddress, sent_size, fd);
+            writefln("Sent to %s completed, Size: %d, fd: %d", client.remoteAddress().toString(), sent_size, client.fd);
         }
     }());
 }

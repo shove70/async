@@ -108,7 +108,7 @@ class TcpClient : TcpStream
                     {
                         if (_selector.onSendCompleted !is null)
                         {
-                            _selector.onSendCompleted(_fd, _remoteAddress, _writingData, cast(size_t)_lastWriteOffset);
+                            _selector.onSendCompleted(this, _writingData, cast(size_t)_lastWriteOffset);
                         }
 
                         debug writefln("The sending is incomplete, the total length is %d, but actually sent only %d.", _writingData.length, _lastWriteOffset);
@@ -149,7 +149,7 @@ class TcpClient : TcpStream
             {
                 if (_selector.onSendCompleted !is null)
                 {
-                    _selector.onSendCompleted(_fd, _remoteAddress, _writingData, cast(size_t)_lastWriteOffset);
+                    _selector.onSendCompleted(this, _writingData, cast(size_t)_lastWriteOffset);
                 }
 
                 _writingData.length = 0;
@@ -212,7 +212,6 @@ class TcpClient : TcpStream
     }
 
 public:
-
     string           _remoteAddress;
     int              _fd;
 

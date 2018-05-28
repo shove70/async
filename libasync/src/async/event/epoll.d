@@ -2,7 +2,7 @@ module async.event.epoll;
 
 debug import std.stdio;
 
-version(linux):
+version (linux):
 
 import core.sys.linux.epoll;
 import core.stdc.errno;
