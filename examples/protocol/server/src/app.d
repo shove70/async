@@ -16,26 +16,14 @@ void main()
 {
     lock = new Mutex();
 
-    EventLoopGroup group = new EventLoopGroup(&createEventLoop);  // Use the thread group, thread num: totalCPUs
-    group.run();
-
-    group.stop();
-
-//    Not use group:
-
-//    EventLoop loop = createEventLoop();
-//    loop.run();
-//
-//    loop.stop();
-}
-
-EventLoop createEventLoop()
-{
     TcpListener listener = new TcpListener();
     listener.bind(new InternetAddress("0.0.0.0", 12290));
     listener.listen(10);
 
-    return new EventLoop(listener, &onConnected, &onDisConnected, &onReceive, &onSendCompleted, &onSocketError);
+    EventLoop loop = new EventLoop(listener, &onConnected, &onDisConnected, &onReceive, &onSendCompleted, &onSocketError);
+    loop.run();
+
+    //loop.stop();
 }
 
 void onConnected(TcpClient client) nothrow @trusted

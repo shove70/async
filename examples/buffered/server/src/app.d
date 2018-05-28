@@ -19,7 +19,7 @@ __gshared Server!(Business) business;
 __gshared ByteBuffer[int] queue;
 __gshared Mutex lock;
 
-ThreadPool businessPool;
+__gshared ThreadPool businessPool;
 
 void main()
 {
@@ -27,22 +27,17 @@ void main()
     Message.settings(615, privateKey, true);
 
     lock         = new Mutex();
-    businessPool = new ThreadPool();
+    businessPool = new ThreadPool(32);
     business     = new Server!(Business)();
 
-    EventLoopGroup group = new EventLoopGroup(&createEventLoop);
-    group.run();
-
-    group.stop();
-}
-
-EventLoop createEventLoop()
-{
     TcpListener listener = new TcpListener();
     listener.bind(new InternetAddress("0.0.0.0", 12290));
     listener.listen(1024);
 
-    return new EventLoop(listener, &onConnected, &onDisConnected, &onReceive, &onSendCompleted, &onSocketError);
+    EventLoop loop = new EventLoop(listener, &onConnected, &onDisConnected, &onReceive, &onSendCompleted, &onSocketError, 1, 8);
+    loop.run();
+
+    //loop.stop();
 }
 
 void onConnected(TcpClient client) nothrow @trusted
@@ -86,7 +81,7 @@ void onReceive(TcpClient client, in ubyte[] data) nothrow @trusted
             queue[client.fd].popFront(len);
         }
 
-        businessPool.doWork!businessHandle(client, buffer);
+        businessPool.run!businessHandle(client, buffer);
     }());
 }
 
