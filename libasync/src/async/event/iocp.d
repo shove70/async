@@ -22,9 +22,9 @@ alias LoopSelector = Iocp;
 
 class Iocp : Selector
 {
-    this(TcpListener listener, OnConnected onConnected, OnDisConnected onDisConnected, OnReceive onReceive, OnSendCompleted onSendCompleted, OnSocketError onSocketError)
+    this(TcpListener listener, OnConnected onConnected, OnDisConnected onDisConnected, OnReceive onReceive, OnSendCompleted onSendCompleted, OnSocketError onSocketError, int acceptThreadNum, int workerThreadNum)
     {
-        super(listener, onConnected, onDisConnected, onReceive, onSendCompleted, onSocketError);
+        super(listener, onConnected, onDisConnected, onReceive, onSendCompleted, onSocketError, acceptThreadNum, workerThreadNum);
 
         _eventHandle = CreateIoCompletionPort(INVALID_HANDLE_VALUE, null, 0, 0);
         register(_listener.fd, EventType.ACCEPT);
@@ -147,7 +147,7 @@ class Iocp : Selector
     {
         WSADATA wsaData;
         int iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
-    
+
         SOCKET ListenSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
         scope (exit)
             closesocket(ListenSocket);
@@ -155,7 +155,7 @@ class Iocp : Selector
 //        mixin(GET_FUNC_POINTER("WSAID_ACCEPTEX", "AcceptEx"));
 //        mixin(GET_FUNC_POINTER("WSAID_CONNECTEX", "ConnectEx"));
     }
-    
+
     shared static ~this()
     {
         WSACleanup();

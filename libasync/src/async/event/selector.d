@@ -11,10 +11,12 @@ else
 }
 
 import std.socket;
+import std.parallelism;
 
 import async.net.tcplistener;
 import async.net.tcpclient;
 import async.container.map;
+import async.thread;
 
 alias OnConnected     = void function(TcpClient);                       nothrow @trusted
 alias OnDisConnected  = void function(int, string);                     nothrow @trusted
@@ -29,7 +31,7 @@ enum EventType
 
 abstract class Selector
 {
-    this(TcpListener listener, OnConnected onConnected, OnDisConnected onDisConnected, OnReceive onReceive, OnSendCompleted onSendCompleted, OnSocketError onSocketError)
+    this(TcpListener listener, OnConnected onConnected, OnDisConnected onDisConnected, OnReceive onReceive, OnSendCompleted onSendCompleted, OnSocketError onSocketError, int acceptThreadNum, int workerThreadNum)
     {
         this._onConnected    = onConnected;
         this._onDisConnected = onDisConnected;
@@ -39,6 +41,19 @@ abstract class Selector
 
         _clients  = new Map!(int, TcpClient);
         _listener = listener;
+
+        if (acceptThreadNum <= 0)
+        {
+            workerThreadNum = totalCPUs;
+        }
+
+        if (workerThreadNum <= 0)
+        {
+            workerThreadNum = totalCPUs;
+        }
+
+        _acceptPool = new ThreadPool(acceptThreadNum);
+        workerPool  = new ThreadPool(workerThreadNum);
     }
 
     ~this()
@@ -128,26 +143,31 @@ protected:
 
     void accept()
     {
+        _acceptPool.run!beginAccept(this);
+    }
+
+    static void beginAccept(Selector selector)
+    {
         Socket socket;
 
         try
         {
-            socket = _listener.accept();
+            socket = selector._listener.accept();
         }
         catch (Exception e)
         {
             return;
         }
 
-        TcpClient client = new TcpClient(this, socket);
-        _clients[client.fd] = client;
+        TcpClient client = new TcpClient(selector, socket);
+        selector._clients[client.fd] = client;
 
-        if (_onConnected !is null)
+        if (selector._onConnected !is null)
         {
-            _onConnected(client);
+            selector._onConnected(client);
         }
 
-        register(client.fd, EventType.READ);
+        selector.register(client.fd, EventType.READ);
     }
 
     void read(int fd)
@@ -156,17 +176,7 @@ protected:
 
         if (client !is null)
         {
-            version (linux)
-            {
-                if (client.read() == -1)
-                {
-                    removeClient(fd);
-                }
-            }
-            else
-            {
-                client.read();
-            }
+            client.weakup(TaskType.READ);
         }
     }
 
@@ -176,7 +186,7 @@ protected:
 
         if (client !is null)
         {
-            client.write();
+            client.weakup(TaskType.WRITE);
         }
     }
 
@@ -190,6 +200,7 @@ protected:
 
 private:
 
+    ThreadPool           _acceptPool;
     bool                 _runing;
     Map!(int, TcpClient) _clients;
 
@@ -198,6 +209,8 @@ private:
     OnSocketError        _onSocketError;
 
 public:
+
+    ThreadPool           workerPool;
 
     OnReceive            onReceive;
     OnSendCompleted      onSendCompleted;

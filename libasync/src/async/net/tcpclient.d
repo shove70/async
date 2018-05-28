@@ -12,8 +12,14 @@ import std.conv;
 import std.string;
 
 import async.event.selector;
+import async.eventloop;
 import async.net.tcpstream;
 import async.container.bytebuffer;
+
+enum TaskType
+{
+    READ, WRITE, CLOSE, ERROR
+}
 
 class TcpClient : TcpStream
 {
@@ -22,6 +28,12 @@ class TcpClient : TcpStream
         super(socket);
 
         _selector           = selector;
+        _hasReadEvent       = false;
+        _hasWriteEvent      = false;
+        _hasCloseEvent      = false;
+        _hasErrorEvent      = false;
+        _reading            = false;
+        _writing            = false;
         _sendLock           = new ReadWriteMutex(ReadWriteMutex.Policy.PREFER_WRITERS);
 
         _remoteAddress      = remoteAddress.toString();
@@ -32,14 +44,48 @@ class TcpClient : TcpStream
         _lastWriteOffset    = 0;
     }
 
-    long read()
+    void weakup(TaskType task)
+    {
+        final switch (task)
+        {
+        case TaskType.READ:
+            _hasReadEvent = true;
+            beginRead();
+            break;
+        case TaskType.WRITE:
+            _hasWriteEvent = true;
+            beginWrite();
+            break;
+        case TaskType.CLOSE:
+            _hasCloseEvent = true;
+            break;
+        case TaskType.ERROR:
+            _hasErrorEvent = true;
+            break;
+        }
+    }
+
+private:
+
+    void beginRead()
+    {
+        if (_reading)
+        {
+            return;
+        }
+
+        _reading = true;
+        _selector.workerPool.run!read(this);
+    }
+
+    protected static void read(TcpClient client)
     {
         ubyte[]     data;
         ubyte[4096] buffer;
 
-        while (!_closing && isAlive)
+        while (!client._closing && client.isAlive)
         {
-            long len = _socket.receive(buffer);
+            long len = client._socket.receive(buffer);
 
             if (len > 0)
             {
@@ -49,7 +95,8 @@ class TcpClient : TcpStream
             }
             else if (len == 0)
             {
-                return -1;
+                client.readCallback(-1);
+                return;
             }
             else
             {
@@ -63,61 +110,92 @@ class TcpClient : TcpStream
                 }
                 else
                 {
-                    return -2;
+                    client.readCallback(-2);
+                    return;
                 }
             }
         }
 
-        if ((data.length > 0) && (_selector.onReceive !is null))
+        if ((data.length > 0) && (client._selector.onReceive !is null))
         {
-            _selector.onReceive(this, data);
+            client._selector.onReceive(client, data);
         }
 
-        return data.length;
+        client.readCallback(0);
     }
 
-    int write()
+    void readCallback(int result)
     {
-        while (!_closing && isAlive && (!_writeQueue.empty() || (_lastWriteOffset > 0)))
+        version (linux)
         {
-            if (_writingData.length == 0)
+            if (result == -1)
             {
-                synchronized (_sendLock.writer)
+                _selector.removeClient(fd);
+            }
+        }
+
+        _reading = false;
+
+        if (_hasReadEvent)
+        {
+            beginRead();
+        }
+    }
+
+    void beginWrite()
+    {
+        if (_writing)
+        {
+            return;
+        }
+
+        _writing = true;
+        _selector.workerPool.run!write(this);
+    }
+
+    protected static void write(TcpClient client)
+    {
+        while (!client._closing && client.isAlive && (!client._writeQueue.empty() || (client._lastWriteOffset > 0)))
+        {
+            if (client._writingData.length == 0)
+            {
+                synchronized (client._sendLock.writer)
                 {
-                    _writingData     = _writeQueue.front;
-                    _writeQueue.popFront();
-                    _lastWriteOffset = 0;
+                    client._writingData     = client._writeQueue.front;
+                    client._writeQueue.popFront();
+                    client._lastWriteOffset = 0;
                 }
             }
 
-            while (!_closing && isAlive && (_lastWriteOffset < _writingData.length))
+            while (!client._closing && client.isAlive && (client._lastWriteOffset < client._writingData.length))
             {
-                long len = _socket.send(_writingData[cast(uint)_lastWriteOffset .. $]);
+                long len = client._socket.send(client._writingData[cast(uint)client._lastWriteOffset .. $]);
 
                 if (len > 0)
                 {
-                    _lastWriteOffset += len;
+                    client._lastWriteOffset += len;
 
                     continue;
                 }
                 else if (len == 0)
                 {
-                    //_selector.removeClient(fd);
+                    //client._selector.removeClient(fd);
 
-                    if (_lastWriteOffset < _writingData.length)
+                    if (client._lastWriteOffset < client._writingData.length)
                     {
-                        if (_selector.onSendCompleted !is null)
+                        if (client._selector.onSendCompleted !is null)
                         {
-                            _selector.onSendCompleted(_fd, _remoteAddress, _writingData, cast(size_t)_lastWriteOffset);
+                            client._selector.onSendCompleted(client._fd, client._remoteAddress, client._writingData, cast(size_t)client._lastWriteOffset);
                         }
 
-                        debug writefln("The sending is incomplete, the total length is %d, but actually sent only %d.", _writingData.length, _lastWriteOffset);
+                        debug writefln("The sending is incomplete, the total length is %d, but actually sent only %d.", client._writingData.length, client._lastWriteOffset);
                     }
 
-                    _writingData.length = 0;
-                    _lastWriteOffset    = 0;
+                    client._writingData.length = 0;
+                    client._lastWriteOffset    = 0;
 
-                    return -1; // sending is break and incomplete.
+                    client.writeCallback(-1);  // sending is break and incomplete.
+                    return;
                 }
                 else
                 {
@@ -127,44 +205,59 @@ class TcpClient : TcpStream
                     }
                     else if (errno == EAGAIN || errno == EWOULDBLOCK)
                     {
-                        if (_currentEventType != EventType.READWRITE)
+                        if (client._currentEventType != EventType.READWRITE)
                         {
-                            _selector.reregister(fd, EventType.READWRITE);
-                            _currentEventType = EventType.READWRITE;
+                            client._selector.reregister(client.fd, EventType.READWRITE);
+                            client._currentEventType = EventType.READWRITE;
                         }
 
-                        return 0; // Wait eventloop notify to continue again;
+                        client.writeCallback(0);  // Wait eventloop notify to continue again;
+                        return;
                     }
                     else
                     {
-                        _writingData.length = 0;
-                        _lastWriteOffset    = 0;
+                        client._writingData.length = 0;
+                        client._lastWriteOffset    = 0;
 
-                        return -2; // Some error.
+                        client.writeCallback(-2);  // Some error.
+                        return;
                     }
                 }
             }
 
-            if (_lastWriteOffset == _writingData.length)
+            if (client._lastWriteOffset == client._writingData.length)
             {
-                if (_selector.onSendCompleted !is null)
+                if (client._selector.onSendCompleted !is null)
                 {
-                    _selector.onSendCompleted(_fd, _remoteAddress, _writingData, cast(size_t)_lastWriteOffset);
+                    client._selector.onSendCompleted(client._fd, client._remoteAddress, client._writingData, cast(size_t)client._lastWriteOffset);
                 }
 
-                _writingData.length = 0;
-                _lastWriteOffset    = 0;
+                client._writingData.length = 0;
+                client._lastWriteOffset    = 0;
             }
         }
 
-        if (_writeQueue.empty() && (_writingData.length == 0) && (_currentEventType == EventType.READWRITE))
+        if (client._writeQueue.empty() && (client._writingData.length == 0) && (client._currentEventType == EventType.READWRITE))
         {
-            _selector.reregister(fd, EventType.READ);
-            _currentEventType = EventType.READ;
+            client._selector.reregister(client.fd, EventType.READ);
+            client._currentEventType = EventType.READ;
         }
 
-        return 0;
+        client.writeCallback(0);
+        return;
     }
+
+    void writeCallback(int result)
+    {
+        _writing = false;
+
+        if (_hasWriteEvent)
+        {
+            beginWrite();
+        }
+    }
+
+public:
 
     int send(ubyte[] data)
     {
@@ -183,7 +276,7 @@ class TcpClient : TcpStream
             _writeQueue ~= data;
         }
 
-        write();  // First write direct, and when it encounter EAGAIN, it will open the EVENT notification.
+        weakup(TaskType.WRITE);  // First write direct, and when it encounter EAGAIN, it will open the EVENT notification.
 
         return 0;
     }
@@ -212,12 +305,20 @@ class TcpClient : TcpStream
     }
 
 public:
+
     string           _remoteAddress;
     int              _fd;
 
 private:
 
     Selector         _selector;
+    shared bool      _hasReadEvent;
+    shared bool      _hasWriteEvent;
+    shared bool      _hasCloseEvent;
+    shared bool      _hasErrorEvent;
+    shared bool      _reading;
+    shared bool      _writing;
+
     ByteBuffer       _writeQueue;
     ubyte[]          _writingData;
     size_t           _lastWriteOffset;

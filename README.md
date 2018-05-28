@@ -1,6 +1,6 @@
 # A cross-platform event loop library of asynchroneous network sockets.
 
-This is a simple wrapper of network library, D language implementation. Its encapsulation is simple and clear, and is very suitable for reading and reference. Though very small, its performance is pretty good.
+This is a simple wrapper of network library, D language implementation. Its encapsulation is simple and clear, and is very suitable for reading and reference. Though very small, its performance is pretty good, It's a real full duplex mode.
 
 ### Support platform:
 
@@ -33,19 +33,12 @@ import async;
 
 void main()
 {
-    EventLoopGroup group = new EventLoopGroup(&createEventLoop);
-    group.run();
-
-    group.stop();
-}
-
-EventLoop createEventLoop()
-{
     TcpListener listener = new TcpListener();
     listener.bind(new InternetAddress("0.0.0.0", 12290));
     listener.listen(10);
 
-    return new EventLoop(listener, null, null, &onReceive, null, null);
+    EventLoop loop = new EventLoop(listener, null, null, &onReceive, null, null);
+    loop.run();
 }
 
 void onReceive(TcpClient client, in ubyte[] data) nothrow @trusted

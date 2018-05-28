@@ -2,6 +2,7 @@ module async.eventloop;
 
 import std.stdio;
 import std.socket;
+import std.parallelism;
 
 import async.event.selector;
 import async.net.tcplistener;
@@ -54,7 +55,7 @@ else
 
 class EventLoop : LoopSelector
 {
-    this(TcpListener listener, OnConnected onConnected, OnDisConnected onDisConnected, OnReceive onReceive, OnSendCompleted onSendCompleted, OnSocketError onSocketError)
+    this(TcpListener listener, OnConnected onConnected, OnDisConnected onDisConnected, OnReceive onReceive, OnSendCompleted onSendCompleted, OnSocketError onSocketError, int acceptThreadNum = totalCPUs, int workerThreadNum = totalCPUs * 2)
     {
         version (Posix)
         {
@@ -65,7 +66,7 @@ class EventLoop : LoopSelector
             sigprocmask(SIG_BLOCK, &mask1, null);
         }
 
-        super(listener, onConnected, onDisConnected, onReceive, onSendCompleted, onSocketError);
+        super(listener, onConnected, onDisConnected, onReceive, onSendCompleted, onSocketError, acceptThreadNum, workerThreadNum);
     }
 
     void run()
