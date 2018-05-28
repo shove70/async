@@ -63,9 +63,9 @@ alias LoopSelector = Kqueue;
 
 class Kqueue : Selector
 {
-    this(TcpListener listener, OnConnected onConnected, OnDisConnected onDisConnected, OnReceive onReceive, OnSendCompleted onSendCompleted, OnSocketError onSocketError, int acceptThreadNum, int workerThreadNum)
+    this(TcpListener listener, OnConnected onConnected, OnDisConnected onDisConnected, OnReceive onReceive, OnSendCompleted onSendCompleted, OnSocketError onSocketError, int workerThreadNum)
     {
-        super(listener, onConnected, onDisConnected, onReceive, onSendCompleted, onSocketError, acceptThreadNum, workerThreadNum);
+        super(listener, onConnected, onDisConnected, onReceive, onSendCompleted, onSocketError, workerThreadNum);
 
         _eventHandle = kqueue();
         register(_listener.fd, EventType.ACCEPT);

@@ -34,7 +34,7 @@ void main()
     listener.bind(new InternetAddress("0.0.0.0", 12290));
     listener.listen(1024);
 
-    EventLoop loop = new EventLoop(listener, &onConnected, &onDisConnected, &onReceive, &onSendCompleted, &onSocketError, 1, 8);
+    EventLoop loop = new EventLoop(listener, &onConnected, &onDisConnected, &onReceive, &onSendCompleted, &onSocketError, 8);
     loop.run();
 
     //loop.stop();

@@ -8,7 +8,7 @@ class ThreadPool
     {
         if (size <= 0)
         {
-            size = totalCPUs * 2;
+            size = totalCPUs;
         }
 
         _pool = new TaskPool(size);

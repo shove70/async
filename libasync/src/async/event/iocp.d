@@ -22,9 +22,9 @@ alias LoopSelector = Iocp;
 
 class Iocp : Selector
 {
-    this(TcpListener listener, OnConnected onConnected, OnDisConnected onDisConnected, OnReceive onReceive, OnSendCompleted onSendCompleted, OnSocketError onSocketError, int acceptThreadNum, int workerThreadNum)
+    this(TcpListener listener, OnConnected onConnected, OnDisConnected onDisConnected, OnReceive onReceive, OnSendCompleted onSendCompleted, OnSocketError onSocketError, int workerThreadNum)
     {
-        super(listener, onConnected, onDisConnected, onReceive, onSendCompleted, onSocketError, acceptThreadNum, workerThreadNum);
+        super(listener, onConnected, onDisConnected, onReceive, onSendCompleted, onSocketError, workerThreadNum);
 
         _eventHandle = CreateIoCompletionPort(INVALID_HANDLE_VALUE, null, 0, 0);
         register(_listener.fd, EventType.ACCEPT);

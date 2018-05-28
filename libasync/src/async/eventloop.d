@@ -55,7 +55,7 @@ else
 
 class EventLoop : LoopSelector
 {
-    this(TcpListener listener, OnConnected onConnected, OnDisConnected onDisConnected, OnReceive onReceive, OnSendCompleted onSendCompleted, OnSocketError onSocketError, int acceptThreadNum = totalCPUs, int workerThreadNum = totalCPUs * 2)
+    this(TcpListener listener, OnConnected onConnected, OnDisConnected onDisConnected, OnReceive onReceive, OnSendCompleted onSendCompleted, OnSocketError onSocketError, int workerThreadNum = totalCPUs)
     {
         version (Posix)
         {
@@ -66,7 +66,7 @@ class EventLoop : LoopSelector
             sigprocmask(SIG_BLOCK, &mask1, null);
         }
 
-        super(listener, onConnected, onDisConnected, onReceive, onSendCompleted, onSocketError, acceptThreadNum, workerThreadNum);
+        super(listener, onConnected, onDisConnected, onReceive, onSendCompleted, onSocketError, workerThreadNum);
     }
 
     void run()

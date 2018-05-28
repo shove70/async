@@ -31,7 +31,7 @@ enum EventType
 
 abstract class Selector
 {
-    this(TcpListener listener, OnConnected onConnected, OnDisConnected onDisConnected, OnReceive onReceive, OnSendCompleted onSendCompleted, OnSocketError onSocketError, int acceptThreadNum, int workerThreadNum)
+    this(TcpListener listener, OnConnected onConnected, OnDisConnected onDisConnected, OnReceive onReceive, OnSendCompleted onSendCompleted, OnSocketError onSocketError, int workerThreadNum)
     {
         this._onConnected    = onConnected;
         this._onDisConnected = onDisConnected;
@@ -42,17 +42,12 @@ abstract class Selector
         _clients  = new Map!(int, TcpClient);
         _listener = listener;
 
-        if (acceptThreadNum <= 0)
-        {
-            workerThreadNum = totalCPUs;
-        }
-
         if (workerThreadNum <= 0)
         {
             workerThreadNum = totalCPUs;
         }
 
-        _acceptPool = new ThreadPool(acceptThreadNum);
+        _acceptPool = new ThreadPool(1);
         workerPool  = new ThreadPool(workerThreadNum);
     }
 
