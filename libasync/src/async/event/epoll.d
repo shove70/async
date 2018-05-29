@@ -119,7 +119,11 @@ class Epoll : Selector
                 }
                 else
                 {
-                    removeClient(fd);
+                    int err;
+                    socklen_t errlen = err.sizeof;
+                    getsockopt(fd, SOL_SOCKET, SO_ERROR, &err, &errlen);
+                    removeClient(fd, err);
+
                     debug writeln("Close event: ", fd);
                 }
 

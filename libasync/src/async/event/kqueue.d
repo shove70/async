@@ -149,7 +149,18 @@ class Kqueue : Selector
                 }
                 else
                 {
-                    removeClient(fd);
+                    if (events[i].flags & EV_ERROR)
+                    {
+                        int err;
+                        socklen_t errlen = err.sizeof;
+                        getsockopt(fd, SOL_SOCKET, SO_ERROR, &err, &errlen);
+                        removeClient(fd, err);
+                    }
+                    else
+                    {
+                        removeClient(fd);
+                    }
+
                     debug writeln("Close event: ", fd);
                 }
 

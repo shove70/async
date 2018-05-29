@@ -73,6 +73,26 @@ abstract class TcpStream
         return _socket.isAlive();
     }
 
+    int getOption(SocketOptionLevel level, SocketOption option, void[] result) @trusted
+    {
+        return _socket.getOption(level, option, result);
+    }
+
+    int getOption(SocketOptionLevel level, SocketOption option, out int32_t result) @trusted
+    {
+        return _socket.getOption(level, option, result);
+    }
+
+    int getOption(SocketOptionLevel level, SocketOption option, out Linger result) @trusted
+    {
+        return _socket.getOption(level, option, result);
+    }
+
+    void getOption(SocketOptionLevel level, SocketOption option, out Duration result) @trusted
+    {
+        return _socket.getOption(level, option, result);
+    }
+
     void setOption(SocketOptionLevel level, SocketOption option, void[] value) @trusted
     {
         _socket.setOption(level, option, value);

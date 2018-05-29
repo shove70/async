@@ -63,9 +63,9 @@ class Iocp : Selector
 
     override void startLoop()
     {
-        runing = true;
+        _runing = true;
 
-        while (runing)
+        while (_runing)
         {
 //            Socket socket = _listener.accept();
 //            TcpClient client = new TcpClient(this, socket);
