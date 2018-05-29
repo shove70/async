@@ -113,18 +113,13 @@ class Epoll : Selector
 
             if ((events[i].events & (EPOLLHUP | EPOLLERR | EPOLLRDHUP)) != 0)
             {
-                if (errno == EINTR)
-                {
-                    continue;
-                }
-
                 if (fd == _listener.fd)
                 {
                     debug writeln("Listener event error.", fd);
                 }
                 else
                 {
-                    removeClient(fd, errno);
+                    removeClient(fd);
                     debug writeln("Close event: ", fd);
                 }
 

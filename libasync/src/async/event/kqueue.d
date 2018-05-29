@@ -149,7 +149,7 @@ class Kqueue : Selector
                 }
                 else
                 {
-                    removeClient(fd, (events[i].flags & EV_EOF) ? 0 : errno);
+                    removeClient(fd);
                     debug writeln("Close event: ", fd);
                 }
 

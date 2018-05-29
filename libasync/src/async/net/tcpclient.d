@@ -102,7 +102,7 @@ private:
                 }
                 else
                 {
-                    client.readCallback(-2);
+                    client.readCallback(errno);
                     return;
                 }
             }
@@ -116,13 +116,13 @@ private:
         client.readCallback(0);
     }
 
-    void readCallback(int result)
+    void readCallback(int err)  // err: 0: OK, -1: client disconnection, 1,2... errno
     {
         version (linux)
         {
             if (result == -1)
             {
-                _selector.removeClient(fd);
+                _selector.removeClient(fd, err);
             }
         }
 
@@ -213,7 +213,7 @@ private:
                         client._writingData.length = 0;
                         client._lastWriteOffset    = 0;
 
-                        client.writeCallback(-2);  // Some error.
+                        client.writeCallback(errno);  // Some error.
                         return;
                     }
                 }
@@ -241,7 +241,7 @@ private:
         return;
     }
 
-    void writeCallback(int result)
+    void writeCallback(int err)  // err: 0: OK, -1: client disconnection, 1,2... errno
     {
         _writing = false;
 

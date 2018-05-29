@@ -110,7 +110,7 @@ abstract class Selector
         }
     }
 
-    void removeClient(int fd, int errno = 0)
+    void removeClient(int fd, int err = 0)
     {
         unregister(fd);
 
@@ -118,9 +118,9 @@ abstract class Selector
 
         if (client !is null)
         {
-            if ((errno != 0) && (_onSocketError !is null))
+            if ((err > 0) && (_onSocketError !is null))
             {
-                _onSocketError(fd, client._remoteAddress, formatSocketError(errno));
+                _onSocketError(fd, client._remoteAddress, formatSocketError(err));
             }
 
             if (_onDisConnected !is null)
