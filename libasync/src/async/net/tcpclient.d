@@ -120,7 +120,7 @@ private:
     {
         version (linux)
         {
-            if (result == -1)
+            if (err == -1)
             {
                 _selector.removeClient(fd, err);
             }
