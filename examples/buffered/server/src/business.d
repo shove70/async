@@ -6,7 +6,7 @@ class Business
 {
     mixin(LoadBufferFile!"account.buffer");
 
-    LoginResponse login(string idOrMobile, string password, string UDID, string remoteAddress)
+    LoginResponse login(string idOrMobile, string password, string UDID)
     {
         LoginResponse res = new LoginResponse();
 

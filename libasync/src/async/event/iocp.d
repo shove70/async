@@ -61,19 +61,19 @@ class Iocp : Selector
         return true;
     }
 
-    override void startLoop()
-    {
-        _runing = true;
-
-        while (_runing)
-        {
-//            Socket socket = _listener.accept();
-//            TcpClient client = new TcpClient(this, socket);
-//            register(client.fd, EventType.READ);
-//            _clients[client.fd] = client;
-            handleEvent();
-        }
-    }
+//    override void startLoop()
+//    {
+//        _runing = true;
+//
+//        while (_runing)
+//        {
+////            Socket socket = _listener.accept();
+////            TcpClient client = new TcpClient(this, socket);
+////            register(client.fd, EventType.READ);
+////            _clients[client.fd] = client;
+//            handleEvent();
+//        }
+//    }
 
     override protected void handleEvent()
     {

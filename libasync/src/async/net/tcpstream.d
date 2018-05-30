@@ -78,7 +78,7 @@ abstract class TcpStream
         return _socket.getOption(level, option, result);
     }
 
-    int getOption(SocketOptionLevel level, SocketOption option, out int32_t result) @trusted
+    int getOption(SocketOptionLevel level, SocketOption option, out int result) @trusted
     {
         return _socket.getOption(level, option, result);
     }

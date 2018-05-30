@@ -87,7 +87,7 @@ void onReceive(TcpClient client, in ubyte[] data) nothrow @trusted
 
 void businessHandle(TcpClient client, ubyte[] buffer)
 {
-    ubyte[] ret_data = business.Handler(buffer, client.remoteAddress.toAddrString());
+    ubyte[] ret_data = business.Handler(buffer);
     client.send(ret_data);
 }
 

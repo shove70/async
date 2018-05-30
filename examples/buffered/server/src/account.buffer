@@ -3,7 +3,6 @@ message LoginRequest
     string  idOrMobile;
     string  password;
     string  UDID;
-    string  remoteAddress;          // value: "__SERVER__CLIENT_ADDRESS__"
 }
 
 message LoginResponse

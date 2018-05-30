@@ -41,7 +41,6 @@ private void go()
         req.idOrMobile = "userId";
         req.password   = "******";
         req.UDID       = Clock.currTime().toUnixTime().to!string;
-        req.remoteAddress = "__SERVER__CLIENT_ADDRESS__";
         ubyte[] buf = req.serialize("login");
 
         TcpSocket socket = new TcpSocket();
