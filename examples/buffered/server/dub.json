@@ -11,7 +11,7 @@
             "path": "../../../"
         },
         "buffer": "~>0.1.22",
-        "cryption": "~>0.1.3"
+        "crypto": "~>0.1.3"
     },
     "stringImportPaths": [
         "src/"

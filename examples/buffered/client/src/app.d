@@ -9,7 +9,7 @@ import std.bitmanip;
 import std.datetime;
 
 import buffer.message;
-import cryption.rsa;
+import crypto.rsa;
 
 mixin(LoadBufferFile!"account.buffer");
 
