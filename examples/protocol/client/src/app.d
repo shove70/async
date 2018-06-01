@@ -1,16 +1,15 @@
+import core.stdc.errno;
+import core.atomic;
+import core.thread;
+
 import std.stdio;
 import std.conv;
 import std.socket;
-import std.concurrency;
-import core.thread;
-import core.stdc.errno;
-import core.atomic;
-
-int size = 10000;
+import std.bitmanip;
 
 void main(string[] argv)
 {
-    ubyte[] data = new ubyte[size];
+    ubyte[] data = new ubyte[10000];
     data[0] = 1;
     data[$ - 1] = 2;
 
@@ -34,10 +33,14 @@ private void go(ubyte[] data)
         socket.blocking = true;
         socket.connect(new InternetAddress("127.0.0.1", 12290));
 
+        ubyte[] buffer = new ubyte[4];
+        buffer.write!int(cast(int)data.length, 0);
+        buffer ~= data;
+
         long len;
-        for (size_t off; off < data.length; off += len)
+        for (size_t off; off < buffer.length; off += len)
         {
-            len = socket.send(data[off..$]);
+            len = socket.send(buffer[off..$]);
 
             if (len > 0)
             {
@@ -58,8 +61,6 @@ private void go(ubyte[] data)
                 return;
             }
         }
-
-        ubyte[] buffer = new ubyte[size];
 
         len = 0;
         for (size_t off; off < buffer.length; off += len)
@@ -87,7 +88,7 @@ private void go(ubyte[] data)
         }
 
         core.atomic.atomicOp!"+="(total, 1);
-        writeln(total.to!string, ": receive: ", "[0]: ", buffer[0], ", [$ - 1]: ", buffer[$ - 1]);
+        writeln(total.to!string, ": receive: ", "[0]: ", buffer[4], ", [$ - 1]: ", buffer[$ - 1]);
 
         socket.shutdown(SocketShutdown.BOTH);
         socket.close();

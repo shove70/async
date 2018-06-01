@@ -1,15 +1,15 @@
+import core.sync.mutex;
+
 import std.stdio;
 import std.conv;
 import std.socket;
 import std.exception;
-
-import core.sync.mutex;
+import std.bitmanip;
 
 import async;
 import async.container;
 
 __gshared ByteBuffer[int] queue;
-__gshared int size = 10000;
 __gshared Mutex lock;
 
 void main()
@@ -57,14 +57,14 @@ void onReceive(TcpClient client, in ubyte[] data) nothrow @trusted
 
             queue[client.fd] ~= data;
 
-            size_t len = findCompleteMessage(queue[client.fd]);
-            if (len == 0)
+            size_t size = findCompleteMessage(queue[client.fd]);
+            if (size == 0)
             {
                 return;
             }
 
-            buffer = queue[client.fd][0 .. len];
-            queue[client.fd].popFront(len);
+            buffer = queue[client.fd][0 .. size];
+            queue[client.fd].popFront(size);
         }
 
         writefln("Receive from %s: %d, fd: %d", client.remoteAddress().toString(), buffer.length, client.fd);
@@ -95,10 +95,17 @@ void onSendCompleted(int fd, string remoteAddress, in ubyte[] data, size_t sent_
 
 private size_t findCompleteMessage(ref ByteBuffer data)
 {
-    if (data.length < size)
+    if (data.length < 4)
     {
         return 0;
     }
 
-    return size;
+    size_t size = data[0 .. 4].peek!int(0);
+
+    if (data.length < 4 + size)
+    {
+        return 0;
+    }
+
+    return size + 4;
 }
