@@ -113,6 +113,33 @@ abstract class TcpStream
         _socket.setOption(level, option, value);
     }
 
+    void setKeepAlive(int time, int interval) @trusted
+    {
+        version (Windows)
+        {
+            tcp_keepalive options;
+            options.onoff             = 1;
+            options.keepalivetime     = time * 1000;
+            options.keepaliveinterval = interval * 1000;
+            uint cbBytesReturned;
+            if (WSAIoctl(sock, SIO_KEEPALIVE_VALS, &options, options.sizeof, null, 0, &cbBytesReturned, null, null) != 0)
+            {
+                //throw new SocketOSException("Error setting keep-alive.");
+            }
+        }
+        else
+        static if (is(typeof(TCP_KEEPIDLE)) && is(typeof(TCP_KEEPINTVL)))
+        {
+            setOption(SocketOptionLevel.TCP, cast(SocketOption) TCP_KEEPIDLE,  time);
+            setOption(SocketOptionLevel.TCP, cast(SocketOption) TCP_KEEPINTVL, interval);
+            setOption(SocketOptionLevel.SOCKET, SocketOption.KEEPALIVE, true);
+        }
+        else
+        {
+            //throw new SocketFeatureException("Setting keep-alive options is not supported on this platform.");
+        }
+    }
+
 protected:
 
     Socket _socket;

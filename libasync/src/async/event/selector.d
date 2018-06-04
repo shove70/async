@@ -155,6 +155,7 @@ protected:
         }
 
         TcpClient client = new TcpClient(selector, socket);
+        client.setKeepAlive(60, 10);
         selector._clients[client.fd] = client;
 
         if (selector._onConnected !is null)
