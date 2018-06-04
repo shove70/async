@@ -122,7 +122,7 @@ abstract class TcpStream
             options.keepalivetime     = time * 1000;
             options.keepaliveinterval = interval * 1000;
             uint cbBytesReturned;
-            if (WSAIoctl(sock, SIO_KEEPALIVE_VALS, &options, options.sizeof, null, 0, &cbBytesReturned, null, null) != 0)
+            if (WSAIoctl(_socket.handle(), SIO_KEEPALIVE_VALS, &options, options.sizeof, null, 0, &cbBytesReturned, null, null) != 0)
             {
                 //throw new SocketOSException("Error setting keep-alive.");
             }
