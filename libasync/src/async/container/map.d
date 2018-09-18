@@ -97,9 +97,9 @@ class Map(TKey, TValue)
     {
         int result = 0;
 
-        for (size_t i = 0; i < _data.keys.length; i++)
+        foreach (k, d; _data)
         {
-            result = dg(_data.keys[i], _data[_data.keys[i]]);
+            result = dg(k, d);
 
             if (result)
             {

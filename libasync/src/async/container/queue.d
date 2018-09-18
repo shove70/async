@@ -1,7 +1,5 @@
 module async.container.queue;
 
-import core.sync.mutex;
-
 import std.container.dlist;
 
 struct Queue(T)
