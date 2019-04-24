@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/shove70/async.svg?branch=master)](https://travis-ci.org/shove70/async)
+
 # A cross-platform event loop library of asynchroneous network sockets.
 
 This is a simple wrapper of network library, D language implementation. Its encapsulation is simple and clear, and is very suitable for reading and reference. Though very small, its performance is pretty good, It's a real full duplex mode.
