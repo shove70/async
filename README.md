@@ -1,4 +1,5 @@
 [![Build Status](https://travis-ci.org/shove70/async.svg?branch=master)](https://travis-ci.org/shove70/async)
+[![GitHub tag](https://img.shields.io/github/tag/shove70/async.svg?maxAge=86400)](https://github.com/shove70/async/releases)
 
 # A cross-platform event loop library of asynchroneous network sockets.
 
