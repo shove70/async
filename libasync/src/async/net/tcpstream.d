@@ -25,6 +25,8 @@ abstract class TcpStream
         version (Posix)
         {
             import core.sys.posix.sys.socket;
+            static if (!is(typeof(SO_REUSEPORT)))  // for Ubuntu.
+                enum SO_REUSEPORT = 0x0200;
             _socket.setOption(SocketOptionLevel.SOCKET, cast(SocketOption)SO_REUSEPORT, _reusePort);
         }
 
