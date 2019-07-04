@@ -1,17 +1,17 @@
 {
-	"authors": [
-		"Shove"
-	],
-	"name": "client",
-	"targetType": "executable",
-	"license": "MIT License",
-	"copyright": "Copyright © 2018, Shove",
-	"targetName": "client",
-	"description": "A client example for async.",
-	"dependencies" : {
-	   "buffer": "~>0.2.18",
-       "crypto": "~>0.2.4"
-	},
+    "authors": [
+        "Shove"
+    ],
+    "name": "client",
+    "targetType": "executable",
+    "license": "MIT License",
+    "copyright": "Copyright © 2018, Shove",
+    "targetName": "client",
+    "description": "A client example for async.",
+    "dependencies": {
+        "buffer": "~>0.2.18",
+        "crypto": "~>0.2.4"
+    },
     "stringImportPaths": [
         "src/"
     ]
