@@ -1,5 +1,5 @@
 /.project
-/.dub/
-/dub.selections.json
+**/.dub/
+**/dub.selections.json
 /libasync.a
 /async.lib

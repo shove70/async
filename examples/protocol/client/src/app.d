@@ -10,8 +10,6 @@ import std.bitmanip;
 void main(string[] argv)
 {
     ubyte[] data = new ubyte[10000];
-    data[0] = 1;
-    data[$ - 1] = 2;
 
     for (int i = 0; i < 10; i++)
     {
