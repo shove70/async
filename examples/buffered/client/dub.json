@@ -9,8 +9,8 @@
     "targetName": "client",
     "description": "A client example for async.",
     "dependencies": {
-        "buffer": "~>0.2.20",
-        "crypto": "~>0.2.6"
+        "buffer": "~>0.2.21",
+        "crypto": "~>0.2.7"
     },
     "stringImportPaths": [
         "src/"
