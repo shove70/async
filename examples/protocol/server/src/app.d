@@ -52,7 +52,7 @@ void onReceive(TcpClient client, in ubyte[] data) nothrow @trusted
             if (client.fd !in queue)
             {
                 writeln("onReceive error. ", client.fd);
-                assert (0, "Error, fd: " ~ client.fd.to!string);
+                assert(0, "Error, fd: " ~ client.fd.to!string);
             }
 
             queue[client.fd] ~= data;

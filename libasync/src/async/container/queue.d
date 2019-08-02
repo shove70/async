@@ -42,6 +42,11 @@ struct Queue(T)
         _size = 0;
     }
 
+    @property ref auto range()
+    {
+        return _data[];
+    }
+
 private:
 
     DList!T _data;

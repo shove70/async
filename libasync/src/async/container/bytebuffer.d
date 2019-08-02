@@ -44,7 +44,7 @@ struct ByteBuffer
     ubyte[] opSlice(in size_t low, in size_t high) @trusted
     in
     {
-        assert ((low <= high) && (high <= _size), "ByteBuffer.opSlice: Invalid arguments low, high");
+        assert((low <= high) && (high <= _size), "ByteBuffer.opSlice: Invalid arguments low, high");
     }
     body
     {
@@ -85,14 +85,14 @@ struct ByteBuffer
 
     @property ref inout(ubyte[]) front() inout
     {
-        assert (!_queue.empty, "ByteBuffer.front: Queue is empty");
+        assert(!_queue.empty, "ByteBuffer.front: Queue is empty");
 
         return _queue.front;
     }
 
     void popFront()
     {
-        assert (!_queue.empty, "ByteBuffer.popFront: Queue is empty");
+        assert(!_queue.empty, "ByteBuffer.popFront: Queue is empty");
 
         _size -= _queue.front.length;
         _queue.removeFront();
@@ -100,7 +100,7 @@ struct ByteBuffer
 
     void popFront(size_t size)
     {
-        assert (size >= 0 && size <= _size, "ByteBuffer.popFront: Invalid arguments size");
+        assert(size >= 0 && size <= _size, "ByteBuffer.popFront: Invalid arguments size");
 
         if (size == 0)
         {
