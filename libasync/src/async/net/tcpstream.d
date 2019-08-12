@@ -55,7 +55,7 @@ abstract class TcpStream
 
     @property int fd()
     {
-        return _socket.handle();
+        return cast(int) (_socket.handle());
     }
 
     @property Address remoteAddress()
