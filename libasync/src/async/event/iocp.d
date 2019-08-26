@@ -113,33 +113,33 @@ class Iocp : Selector
         auto ev = cast(IocpContext*)overlapped;
         switch (ev.operation)
         {
-        case IocpOperation.accept:
-            accept();
+            case IocpOperation.accept:
+                accept();
 
-            break;
-        case IocpOperation.connect:
-            read(ev.fd);
+                break;
+            case IocpOperation.connect:
+                read(ev.fd);
 
-            break;
-        case IocpOperation.read:
-            write(ev.fd);
+                break;
+            case IocpOperation.read:
+                write(ev.fd);
 
-            break;
-        case IocpOperation.write:
+                break;
+            case IocpOperation.write:
 
-            break;
-        case IocpOperation.event:
+                break;
+            case IocpOperation.event:
 
-            break;
-        case IocpOperation.close:
-            removeClient(ev.fd);
-            debug writeln("Close event: ", ev.fd);
+                break;
+            case IocpOperation.close:
+                removeClient(ev.fd);
+                debug writeln("Close event: ", ev.fd);
 
-            break;
-        default:
-            debug writefln("Unsupported operation type: ", ev.operation);
+                break;
+            default:
+                debug writefln("Unsupported operation type: ", ev.operation);
 
-            break;
+                break;
         }
     }
 

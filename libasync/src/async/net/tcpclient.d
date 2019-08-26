@@ -41,17 +41,17 @@ class TcpClient : TcpStream
     {
         final switch (event)
         {
-        case EventType.READ:
-            _hasReadEvent = true;
-            beginRead();
-            break;
-        case EventType.WRITE:
-            _hasWriteEvent = true;
-            beginWrite();
-            break;
-        case EventType.ACCEPT:
-        case EventType.READWRITE:
-            break;
+            case EventType.READ:
+                _hasReadEvent = true;
+                beginRead();
+                break;
+            case EventType.WRITE:
+                _hasWriteEvent = true;
+                beginWrite();
+                break;
+            case EventType.ACCEPT:
+            case EventType.READWRITE:
+                break;
         }
     }
 
