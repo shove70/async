@@ -74,6 +74,12 @@ private void go()
             }
             else
             {
+                if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK)
+                {
+                    len = 0;
+                    continue;
+                }
+
                 writefln("Socket error at send. Local socket: %s, error: %s", socket.localAddress().toString(), formatSocketError(errno));
                 socket.close();
 
@@ -137,6 +143,12 @@ private void go()
             }
             else
             {
+                if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK)
+                {
+                    len = 0;
+                    continue;
+                }
+
                 writeln("Socket error at receive3. Local socket: %s, error: %s", socket.localAddress().toString(), formatSocketError(errno));
                 socket.close();
 
@@ -152,5 +164,6 @@ private void go()
         
         LoginResponse res = Message.deserialize!LoginResponse(buffer);
         writefln("result: %d, description: %s, userId: %d, token: %s, name: %s, mobile: %s", res.result, res.description, res.userId, res.token, res.name, (Clock.currTime() - SysTime.fromUnixTime(res.mobile.to!long)).total!"seconds");
+        Thread.sleep(50.msecs);
     }
 }

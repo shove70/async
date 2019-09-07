@@ -17,10 +17,10 @@ void main()
     //loop.stop();
 }
 
-void onReceive(TcpClient client, in ubyte[] data) nothrow @trusted
+void onReceive(TcpClient client, const scope ubyte[] data) nothrow @trusted
 {
     collectException({
         writefln("Receive from %s: %d", client.remoteAddress().toString(), data.length);
-        client.send(cast(ubyte[])data);
+        client.send(data);
     }());
 }

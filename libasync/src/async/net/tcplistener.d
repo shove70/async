@@ -15,13 +15,9 @@ class TcpListener : TcpStream
         optLinger.on   = 1;
         optLinger.time = 0;
         setOption(SocketOptionLevel.SOCKET, SocketOption.LINGER, optLinger);
-//        version (linux)
-//        {
-//            setOption(SocketOptionLevel.TCP, cast(SocketOption) 23, 1024);
-//        }
     }
 
-    void bind(string host, ushort port)
+    void bind(string host, const ushort port)
     {
         _socket.bind(new InternetAddress(host, port));
     }
@@ -31,7 +27,7 @@ class TcpListener : TcpStream
         _socket.bind(address);
     }
 
-    void listen(int backlog = 10)
+    void listen(const int backlog = 10)
     {
         _socket.listen(backlog);
     }

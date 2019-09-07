@@ -55,7 +55,10 @@ else
 
 class EventLoop : LoopSelector
 {
-    this(TcpListener listener, OnConnected onConnected, OnDisConnected onDisConnected, OnReceive onReceive, OnSendCompleted onSendCompleted, OnSocketError onSocketError, int workerThreadNum = totalCPUs)
+    this(TcpListener listener,
+        OnConnected onConnected, OnDisConnected onDisConnected, OnReceive onReceive, OnSendCompleted onSendCompleted,
+        OnSocketError onSocketError,
+        const int workerThreadNum = totalCPUs)
     {
         version (Posix)
         {

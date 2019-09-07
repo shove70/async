@@ -7,8 +7,8 @@ abstract class TcpStream
 {
     this(Socket socket)
     {
-        _socket          = socket;
-        _socket.blocking = false;
+        _socket = socket;
+        version (Windows) { } else _socket.blocking = false;
     }
 
     @property bool reusePort()
@@ -115,29 +115,7 @@ abstract class TcpStream
 
     void setKeepAlive(int time, int interval) @trusted
     {
-        version (Windows)
-        {
-            tcp_keepalive options;
-            options.onoff             = 1;
-            options.keepalivetime     = time * 1000;
-            options.keepaliveinterval = interval * 1000;
-            uint cbBytesReturned;
-            if (WSAIoctl(_socket.handle(), SIO_KEEPALIVE_VALS, &options, options.sizeof, null, 0, &cbBytesReturned, null, null) != 0)
-            {
-                //throw new SocketOSException("Error setting keep-alive.");
-            }
-        }
-        else
-        static if (is(typeof(TCP_KEEPIDLE)) && is(typeof(TCP_KEEPINTVL)))
-        {
-            setOption(SocketOptionLevel.TCP, cast(SocketOption) TCP_KEEPIDLE,  time);
-            setOption(SocketOptionLevel.TCP, cast(SocketOption) TCP_KEEPINTVL, interval);
-            setOption(SocketOptionLevel.SOCKET, SocketOption.KEEPALIVE, true);
-        }
-        else
-        {
-            //throw new SocketFeatureException("Setting keep-alive options is not supported on this platform.");
-        }
+        _socket.setKeepAlive(time, interval);
     }
 
 protected:

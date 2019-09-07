@@ -10,8 +10,10 @@ import std.bitmanip;
 void main(string[] argv)
 {
     ubyte[] data = new ubyte[10000];
+    data[0] = 1;
+    data[$ - 1] = 2;
 
-    for (int i = 0; i < 10; i++)
+    for (int i = 0; i < 3; i++)
     {
         new Thread(
             {
@@ -53,6 +55,12 @@ private void go(ubyte[] data)
             }
             else
             {
+                if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK)
+                {
+                    len = 0;
+                    continue;
+                }
+
                 writefln("Socket error at send. Local socket: %s, error: %s", socket.localAddress().toString(), formatSocketError(errno));
                 socket.close();
 
@@ -78,6 +86,12 @@ private void go(ubyte[] data)
             }
             else
             {
+                if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK)
+                {
+                    len = 0;
+                    continue;
+                }
+
                 writefln("Socket error at receive. Local socket: %s, error: %s", socket.localAddress().toString(), formatSocketError(errno));
                 socket.close();
 
@@ -90,5 +104,6 @@ private void go(ubyte[] data)
 
         socket.shutdown(SocketShutdown.BOTH);
         socket.close();
+        Thread.sleep(50.msecs);
     }
 }

@@ -2,13 +2,6 @@ module async.event.selector;
 
 import core.sync.mutex;
 import core.thread;
-version (Windows)
-{
-}
-else
-{
-    import core.sys.posix.unistd;
-}
 
 import std.socket;
 import std.parallelism;
@@ -18,11 +11,11 @@ import async.net.tcpclient;
 import async.container.map;
 import async.thread;
 
-alias OnConnected     = void function(TcpClient);                       nothrow @trusted
-alias OnDisConnected  = void function(int, string);                     nothrow @trusted
-alias OnReceive       = void function(TcpClient, in ubyte[]);           nothrow @trusted
-alias OnSendCompleted = void function(int, string, in ubyte[], size_t); nothrow @trusted
-alias OnSocketError   = void function(int, string, string);             nothrow @trusted
+alias OnConnected     = void function(TcpClient)                                            nothrow @trusted;
+alias OnDisConnected  = void function(const int, string)                                    nothrow @trusted;
+alias OnReceive       = void function(TcpClient, const scope ubyte[])                       nothrow @trusted;
+alias OnSendCompleted = void function(const int, string, const scope ubyte[], const size_t) nothrow @trusted;
+alias OnSocketError   = void function(const int, string, string)                            nothrow @trusted;
 
 enum EventType
 {
@@ -31,7 +24,10 @@ enum EventType
 
 abstract class Selector
 {
-    this(TcpListener listener, OnConnected onConnected, OnDisConnected onDisConnected, OnReceive onReceive, OnSendCompleted onSendCompleted, OnSocketError onSocketError, int workerThreadNum)
+    this(TcpListener listener,
+        OnConnected onConnected, OnDisConnected onDisConnected, OnReceive onReceive, OnSendCompleted onSendCompleted,
+        OnSocketError onSocketError,
+        const int workerThreadNum)
     {
         this._onConnected    = onConnected;
         this._onDisConnected = onDisConnected;
@@ -41,14 +37,10 @@ abstract class Selector
 
         _clients  = new Map!(int, TcpClient);
         _listener = listener;
+        _workerThreadNum = (workerThreadNum <= 0) ? totalCPUs * 2 + 2 : workerThreadNum;
 
-        if (workerThreadNum <= 0)
-        {
-            workerThreadNum = totalCPUs;
-        }
-
-        _acceptPool = new ThreadPool(1);
-        workerPool  = new ThreadPool(workerThreadNum);
+        version (Windows) { } else _acceptPool = new ThreadPool(1);
+        workerPool = new ThreadPool(_workerThreadNum);
     }
 
     ~this()
@@ -56,17 +48,30 @@ abstract class Selector
         dispose();
     }
 
-    bool register  (int fd, EventType et);
-    bool reregister(int fd, EventType et);
-    bool unregister(int fd);
+    bool register  (const int fd, EventType et);
+    bool reregister(const int fd, EventType et);
+    bool unregister(const int fd);
 
     void startLoop()
     {
         _runing = true;
 
+        version (Windows)
+        {
+            foreach (i; 0 .. _workerThreadNum)
+                workerPool.run!handleEvent(this);
+        }
+
         while (_runing)
         {
-            handleEvent();
+            version (Windows)
+            {
+                beginAccept(this);
+            }
+            else
+            {
+                handleEvent();
+            }
         }
     }
 
@@ -101,16 +106,14 @@ abstract class Selector
         unregister(_listener.fd);
         _listener.close();
 
-        version (Windows)
+        version (Windows) { } else
         {
-        }
-        else
-        {
+            static import core.sys.posix.unistd;
             core.sys.posix.unistd.close(_eventHandle);
         }
     }
 
-    void removeClient(int fd, int err = 0)
+    void removeClient(const int fd, const int err = 0)
     {
         unregister(fd);
 
@@ -134,9 +137,15 @@ abstract class Selector
         _clients.remove(fd);
     }
 
+    version (Windows)
+    {
+        void iocp_send(const int fd, const scope ubyte[] data);
+        void iocp_receive(const int fd);
+    }
+
 protected:
 
-    void accept()
+    version (Windows) { } else void accept()
     {
         _acceptPool.run!beginAccept(this);
     }
@@ -155,7 +164,15 @@ protected:
         }
 
         TcpClient client = new TcpClient(selector, socket);
-        client.setKeepAlive(600, 10);
+
+        try
+        {
+            client.setKeepAlive(600, 10);
+        }
+        catch (Exception e)
+        {
+        }
+
         selector._clients[client.fd] = client;
 
         if (selector._onConnected !is null)
@@ -164,19 +181,36 @@ protected:
         }
 
         selector.register(client.fd, EventType.READ);
+
+        version (Windows) selector.iocp_receive(client.fd);
     }
 
-    void read(int fd)
+    version (Windows)
     {
-        TcpClient client = _clients[fd];
-
-        if (client !is null)
+        void read(const int fd, const scope ubyte[] data)
         {
-            client.weakup(EventType.READ);
+            TcpClient client = _clients[fd];
+
+            if ((client !is null) && (onReceive !is null))
+            {
+                onReceive(client, data);
+            }
+        }
+    }
+    else
+    {
+        void read(const int fd)
+        {
+            TcpClient client = _clients[fd];
+
+            if (client !is null)
+            {
+                client.weakup(EventType.READ);
+            }
         }
     }
 
-    void write(int fd)
+    version (Windows) { } else void write(const int fd)
     {
         TcpClient client = _clients[fd];
 
@@ -186,18 +220,32 @@ protected:
         }
     }
 
-protected:
-
     bool                 _isDisposed = false;
     TcpListener          _listener;
-    int                  _eventHandle;
+    bool                 _runing;
+    int                  _workerThreadNum;
 
-    void handleEvent();
+    version (Windows)
+    {
+        import core.sys.windows.basetsd : HANDLE;
+        HANDLE _eventHandle;
+
+        static void handleEvent(Selector selector)
+        {
+            import async.event.iocp : Iocp;
+            Iocp.handleEvent(selector);
+        }
+    }
+    else
+    {
+        int _eventHandle;
+
+        void handleEvent();
+    }
 
 private:
 
     ThreadPool           _acceptPool;
-    bool                 _runing;
     Map!(int, TcpClient) _clients;
 
     OnConnected          _onConnected;

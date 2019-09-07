@@ -48,7 +48,7 @@ void onConnected(TcpClient client) nothrow @trusted
     }());
 }
 
-void onDisConnected(int fd, string remoteAddress) nothrow @trusted
+void onDisConnected(const int fd, string remoteAddress) nothrow @trusted
 {
     collectException({
         synchronized(lock) queue.remove(fd);
@@ -56,7 +56,7 @@ void onDisConnected(int fd, string remoteAddress) nothrow @trusted
     }());
 }
 
-void onReceive(TcpClient client, in ubyte[] data) nothrow @trusted
+void onReceive(TcpClient client, const scope ubyte[] data) nothrow @trusted
 {
     collectException({
         ubyte[] buffer;
@@ -85,20 +85,20 @@ void onReceive(TcpClient client, in ubyte[] data) nothrow @trusted
     }());
 }
 
-void businessHandle(TcpClient client, ubyte[] buffer)
+void businessHandle(TcpClient client, const scope ubyte[] buffer)
 {
     ubyte[] ret_data = business.Handler(buffer);
     client.send(ret_data);
 }
 
-void onSocketError(int fd, string remoteAddress, string msg) nothrow @trusted
+void onSocketError(const int fd, string remoteAddress, string msg) nothrow @trusted
 {
     collectException({
         writeln("Client socket error: ", remoteAddress, " ", msg);
     }());
 }
 
-void onSendCompleted(int fd, string remoteAddress, in ubyte[] data, size_t sent_size) nothrow @trusted
+void onSendCompleted(const int fd, string remoteAddress, const scope ubyte[] data, const size_t sent_size) nothrow @trusted
 {
     collectException({
         if (sent_size != data.length)

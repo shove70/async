@@ -47,6 +47,7 @@ else version (DragonFlyBSD)
 version (KQUEUE):
 
 import core.stdc.errno;
+
 import core.sys.posix.signal;
 import core.sys.posix.netinet.tcp;
 import core.sys.posix.netinet.in_;
@@ -63,7 +64,10 @@ alias LoopSelector = Kqueue;
 
 class Kqueue : Selector
 {
-    this(TcpListener listener, OnConnected onConnected, OnDisConnected onDisConnected, OnReceive onReceive, OnSendCompleted onSendCompleted, OnSocketError onSocketError, int workerThreadNum)
+    this(TcpListener listener,
+        OnConnected onConnected, OnDisConnected onDisConnected, OnReceive onReceive, OnSendCompleted onSendCompleted,
+        OnSocketError onSocketError,
+        const int workerThreadNum)
     {
         super(listener, onConnected, onDisConnected, onReceive, onSendCompleted, onSocketError, workerThreadNum);
 
@@ -71,7 +75,7 @@ class Kqueue : Selector
         register(_listener.fd, EventType.ACCEPT);
     }
 
-    override bool register(int fd, EventType et)
+    override bool register(const int fd, EventType et)
     {
         kevent_t[2] ev = void;
         short  filter;
@@ -100,7 +104,7 @@ class Kqueue : Selector
         }
     }
 
-    override bool reregister(int fd, EventType et)
+    override bool reregister(const int fd, EventType et)
     {
         if (fd < 0)
         {
@@ -110,7 +114,7 @@ class Kqueue : Selector
         return register(fd, et);
     }
 
-    override bool unregister(int fd)
+    override bool unregister(const int fd)
     {
         if (fd < 0)
         {

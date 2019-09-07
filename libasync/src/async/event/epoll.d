@@ -4,8 +4,9 @@ debug import std.stdio;
 
 version (linux):
 
-import core.sys.linux.epoll;
 import core.stdc.errno;
+
+import core.sys.linux.epoll;
 import core.sys.posix.signal;
 import core.sys.posix.netinet.tcp;
 import core.sys.posix.netinet.in_;
@@ -22,7 +23,10 @@ alias LoopSelector = Epoll;
 
 class Epoll : Selector
 {
-    this(TcpListener listener, OnConnected onConnected, OnDisConnected onDisConnected, OnReceive onReceive, OnSendCompleted onSendCompleted, OnSocketError onSocketError, int workerThreadNum)
+    this(TcpListener listener,
+        OnConnected onConnected, OnDisConnected onDisConnected, OnReceive onReceive, OnSendCompleted onSendCompleted,
+        OnSocketError onSocketError,
+        const int workerThreadNum)
     {
         super(listener, onConnected, onDisConnected, onReceive, onSendCompleted, onSocketError, workerThreadNum);
 
@@ -30,7 +34,7 @@ class Epoll : Selector
         register(_listener.fd, EventType.ACCEPT);
     }
 
-    override bool register(int fd, EventType et)
+    override bool register(const int fd, EventType et)
     {
         if (fd < 0)
         {
@@ -65,7 +69,7 @@ class Epoll : Selector
         return true;
     }
 
-    override bool reregister(int fd, EventType et)
+    override bool reregister(const int fd, EventType et)
     {
         if (fd < 0)
         {
@@ -92,7 +96,7 @@ class Epoll : Selector
         return (epoll_ctl(_eventHandle, EPOLL_CTL_MOD, fd, &ev) == 0);
     }
 
-    override bool unregister(int fd)
+    override bool unregister(const int fd)
     {
         if (fd < 0)
         {

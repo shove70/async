@@ -82,7 +82,3 @@ void main(string[] argv)
 ### Todo:
 
 You can add, repair and submit after fork, and improve it together. Thank you.
-
-Note:
-
-IOCP has not been completed and submitted.
