@@ -10,8 +10,8 @@
         "async": {
             "path": "../../../"
         },
-        "buffer": "~>0.2.24",
-        "crypto": "~>0.2.9"
+        "buffer": "~>0.2.25",
+        "crypto": "~>0.2.10"
     },
     "stringImportPaths": [
         "src/"
