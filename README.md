@@ -1,5 +1,6 @@
 [![Build Status](https://travis-ci.org/shove70/async.svg?branch=master)](https://travis-ci.org/shove70/async)
 [![GitHub tag](https://img.shields.io/github/tag/shove70/async.svg?maxAge=86400)](https://github.com/shove70/async/releases)
+[![Dub downloads](https://img.shields.io/dub/dt/async.svg)](http://code.dlang.org/packages/async)
 
 # A cross-platform event loop library of asynchroneous network sockets.
 
@@ -7,19 +8,19 @@ This is a simple wrapper of network library, D language implementation. Its enca
 
 ### Support platform:
 
-Platforms
-FreeBSD
-Windows
-OSX
-Linux
-NetBSD
-OpenBSD
+* Platforms
+* FreeBSD
+* Windows
+* OSX
+* Linux
+* NetBSD
+* OpenBSD
 
 ### Support for kernel loop (while supporting IN and OUT event listener):
 
-Epoll
-Kqueue
-IOCP
+* Epoll
+* Kqueue
+* IOCP
 
 ### Quick Start:
 

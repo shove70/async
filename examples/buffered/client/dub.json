@@ -4,13 +4,13 @@
     ],
     "name": "client",
     "targetType": "executable",
-    "license": "MIT License",
+    "license": "MIT",
     "copyright": "Copyright © 2018, Shove",
     "targetName": "client",
     "description": "A client example for async.",
     "dependencies": {
-        "buffer": "~>0.2.25",
-        "crypto": "~>0.2.10"
+        "buffer": "~>0.2.26",
+        "crypto": "~>0.2.11"
     },
     "stringImportPaths": [
         "src/"

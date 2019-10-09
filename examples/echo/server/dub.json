@@ -2,11 +2,11 @@
     "authors": ["Shove"],
     "name": "server",
     "targetType": "executable",
-    "license": "MIT License",
+    "license": "MIT",
     "copyright": "Copyright © 2018, Shove",
     "targetName": "server",
     "description": "A server example for async.",
-    "dependencies" : {
+    "dependencies": {
         "async": {
             "path": "../../../"
         }

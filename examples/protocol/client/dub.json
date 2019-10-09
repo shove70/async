@@ -4,7 +4,7 @@
     ],
     "name": "client",
     "targetType": "executable",
-    "license": "MIT License",
+    "license": "MIT",
     "copyright": "Copyright © 2018, Shove",
     "targetName": "client",
     "description": "A client example for async.",
