@@ -9,6 +9,9 @@ abstract class TcpStream
     {
         _socket = socket;
         version (Windows) { } else _socket.blocking = false;
+
+        setOption(SocketOptionLevel.SOCKET, SocketOption.RCVTIMEO, 60.seconds);
+        setOption(SocketOptionLevel.SOCKET, SocketOption.SNDTIMEO, 60.seconds);
     }
 
     @property bool reusePort()
