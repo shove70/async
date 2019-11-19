@@ -9,7 +9,7 @@
     "targetName": "client",
     "description": "A client example for async.",
     "dependencies": {
-        "buffer": "~>0.2.27",
+        "buffer": "~>0.2.28",
         "crypto": "~>0.2.12"
     },
     "stringImportPaths": [
