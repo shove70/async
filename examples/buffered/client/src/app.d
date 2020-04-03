@@ -44,7 +44,6 @@ private void go()
         ubyte[] buf = req.serialize("login");
 
         TcpSocket socket = new TcpSocket();
-        socket.blocking = true;
 
         try
         {

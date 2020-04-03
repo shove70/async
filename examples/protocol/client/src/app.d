@@ -30,7 +30,6 @@ private void go(ubyte[] data)
     for (int i = 0; i < 100000; i++)
     {
         TcpSocket socket = new TcpSocket();
-        socket.blocking = true;
         socket.connect(new InternetAddress("127.0.0.1", 12290));
 
         ubyte[] buffer = new ubyte[4];

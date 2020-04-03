@@ -5,7 +5,6 @@ import std.socket;
 void main(string[] argv)
 {
     TcpSocket socket = new TcpSocket();
-    socket.blocking = true;
     socket.connect(new InternetAddress("127.0.0.1", 12290));
 
     string data = "hello, server.";
