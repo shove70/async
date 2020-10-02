@@ -41,7 +41,7 @@ struct ByteBuffer
         _size += rhs.length;
     }
 
-    ubyte[] opSlice(in size_t low, in size_t high) @trusted
+    ubyte[] opSlice(const size_t low, const size_t high) @trusted
     in
     {
         assert((low <= high) && (high <= _size), "ByteBuffer.opSlice: Invalid arguments low, high");
@@ -83,6 +83,28 @@ struct ByteBuffer
         return _size;
     }
 
+    ref ubyte opIndex(const size_t index) @trusted
+    in
+    {
+        assert((index < _size), "ByteBuffer.opIndex: Invalid arguments index");
+    }
+    body
+    {
+        size_t size, start;
+        foreach (a; _queue)
+        {
+            start = size;
+            size += a.length;
+
+            if (index < size)
+            {
+                return a[index - start];
+            }
+        }
+
+        assert(0);
+    }
+
     @property ref inout(ubyte[]) front() inout
     {
         assert(!_queue.empty, "ByteBuffer.front: Queue is empty");
@@ -98,7 +120,7 @@ struct ByteBuffer
         _queue.removeFront();
     }
 
-    void popFront(size_t size)
+    void popFront(const size_t size)
     {
         assert(size >= 0 && size <= _size, "ByteBuffer.popFront: Invalid arguments size");
 
@@ -122,7 +144,7 @@ struct ByteBuffer
         {
             line++;
             currline_len = a.length;
-            count       += currline_len;
+            count += currline_len;
 
             if (count > size)
             {
@@ -133,7 +155,7 @@ struct ByteBuffer
         if (line > 1)
         {
             removed = count - currline_len;
-            lack    = size  - removed;
+            lack = size  - removed;
             _queue.removeFront(line - 1);
         }
 

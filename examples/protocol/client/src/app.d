@@ -15,11 +15,7 @@ void main(string[] argv)
 
     for (int i = 0; i < 3; i++)
     {
-        new Thread(
-            {
-                go(data);
-            }
-        ).start();
+        new Thread( { go(data); } ).start();
     }
 }
 

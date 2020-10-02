@@ -16,6 +16,7 @@ import async.event.selector;
 import async.net.tcpstream;
 import async.net.tcplistener;
 import async.net.tcpclient;
+import async.codec;
 
 alias LoopSelector = Iocp;
 
@@ -23,10 +24,9 @@ class Iocp : Selector
 {
     this(TcpListener listener,
         OnConnected onConnected, OnDisConnected onDisConnected, OnReceive onReceive, OnSendCompleted onSendCompleted,
-        OnSocketError onSocketError,
-        const int workerThreadNum)
+        OnSocketError onSocketError, Codec codec, const int workerThreadNum)
     {
-        super(listener, onConnected, onDisConnected, onReceive, onSendCompleted, onSocketError, workerThreadNum);
+        super(listener, onConnected, onDisConnected, onReceive, onSendCompleted, onSocketError, codec, workerThreadNum);
 
         _eventHandle = CreateIoCompletionPort(INVALID_HANDLE_VALUE, null, 0, _workerThreadNum);
     }

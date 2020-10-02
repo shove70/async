@@ -3,7 +3,7 @@
     "name": "server",
     "targetType": "executable",
     "license": "MIT",
-    "copyright": "Copyright © 2018, Shove",
+    "copyright": "Copyright © 2020, Shove",
     "targetName": "server",
     "description": "A server example for async.",
     "dependencies": {

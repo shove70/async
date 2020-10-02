@@ -1,6 +1,6 @@
 module async.thread;
 
-import std.parallelism;
+import std.parallelism : TaskPool, task, totalCPUs;
 
 class ThreadPool
 {
@@ -8,7 +8,7 @@ class ThreadPool
     {
         if (size <= 0)
         {
-            size = totalCPUs;
+            size = totalCPUs * 2 + 2;
         }
 
         _pool = new TaskPool(size);

@@ -3,7 +3,7 @@
     "name": "async",
     "description": "A cross-platform event loop library of asynchroneous network sockets.",
     "license": "MIT",
-    "copyright": "Copyright © 2018, Shove",
+    "copyright": "Copyright © 2020, Shove",
     "targetType": "library",
     "targetName": "async",
     "importPaths": [

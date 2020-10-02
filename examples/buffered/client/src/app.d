@@ -22,11 +22,7 @@ void main(string[] argv)
     
     for (int i = 0; i < 200; i++)
     {
-        new Thread(
-            {
-                go();
-            }
-        ).start();
+        new Thread( { go(); } ).start();
     }
 }
 

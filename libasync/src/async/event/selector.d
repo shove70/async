@@ -4,12 +4,13 @@ import core.sync.mutex;
 import core.thread;
 
 import std.socket;
-import std.parallelism;
+import std.parallelism : totalCPUs;
 
 import async.net.tcplistener;
 import async.net.tcpclient;
 import async.container.map;
 import async.thread;
+import async.codec;
 
 alias OnConnected     = void function(TcpClient)                                            nothrow @trusted;
 alias OnDisConnected  = void function(const int, string)                                    nothrow @trusted;
@@ -26,14 +27,14 @@ abstract class Selector
 {
     this(TcpListener listener,
         OnConnected onConnected, OnDisConnected onDisConnected, OnReceive onReceive, OnSendCompleted onSendCompleted,
-        OnSocketError onSocketError,
-        const int workerThreadNum)
+        OnSocketError onSocketError, Codec codec, const int workerThreadNum)
     {
         this._onConnected    = onConnected;
         this._onDisConnected = onDisConnected;
         this.onReceive       = onReceive;
         this.onSendCompleted = onSendCompleted;
         this._onSocketError  = onSocketError;
+        this._codec          = codec;
 
         _clients  = new Map!(int, TcpClient);
         _listener = listener;
@@ -141,6 +142,11 @@ abstract class Selector
     {
         void iocp_send(const int fd, const scope ubyte[] data);
         void iocp_receive(const int fd);
+    }
+
+    @property Codec codec()
+    {
+        return this._codec;
     }
 
 protected:
@@ -251,6 +257,8 @@ private:
     OnConnected          _onConnected;
     OnDisConnected       _onDisConnected;
     OnSocketError        _onSocketError;
+
+    Codec                _codec;
 
 public:
 

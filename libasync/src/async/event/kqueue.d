@@ -59,6 +59,7 @@ import async.event.selector;
 import async.net.tcpstream;
 import async.net.tcplistener;
 import async.net.tcpclient;
+import async.codec;
 
 alias LoopSelector = Kqueue;
 
@@ -66,10 +67,9 @@ class Kqueue : Selector
 {
     this(TcpListener listener,
         OnConnected onConnected, OnDisConnected onDisConnected, OnReceive onReceive, OnSendCompleted onSendCompleted,
-        OnSocketError onSocketError,
-        const int workerThreadNum)
+        OnSocketError onSocketError, Codec codec, const int workerThreadNum)
     {
-        super(listener, onConnected, onDisConnected, onReceive, onSendCompleted, onSocketError, workerThreadNum);
+        super(listener, onConnected, onDisConnected, onReceive, onSendCompleted, onSocketError, codec, workerThreadNum);
 
         _eventHandle = kqueue();
         register(_listener.fd, EventType.ACCEPT);

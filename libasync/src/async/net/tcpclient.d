@@ -10,6 +10,7 @@ import core.sync.rwmutex;
 import std.socket;
 import std.conv;
 import std.string;
+import std.typecons : Tuple;
 
 import async.event.selector;
 import async.eventloop;
@@ -114,7 +115,30 @@ private:
 
             if ((data.length > 0) && (client._selector.onReceive !is null))
             {
-                client._selector.onReceive(client, data);
+                if (client._selector.codec is null)
+                {
+                    client._selector.onReceive(client, data);
+                }
+                else
+                {
+                    client._receiveBuffer ~= data;
+                    
+                    label_parseOne:
+                    const Tuple!(long, size_t) ret = client._selector.codec.decode(client._receiveBuffer);
+
+                    if (ret[0] >= 0)
+                    {
+                        const ubyte[] message = client._receiveBuffer[0 .. ret[0]];
+                        client._receiveBuffer.popFront(ret[0] + ret[1]);
+                        client._selector.onReceive(client, message);
+                        goto label_parseOne;
+                    }
+                    else if (ret[0] == -2) // The magic is error.
+                    {
+                        client.forceClose();
+                        return;
+                    }
+                }
             }
 
             client.readCallback(0);
@@ -349,4 +373,6 @@ private:
 
         EventType        _currentEventType;
     }
+
+    ByteBuffer       _receiveBuffer;
 }
