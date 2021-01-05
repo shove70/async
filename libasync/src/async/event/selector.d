@@ -53,6 +53,27 @@ abstract class Selector
     bool reregister(const int fd, EventType et);
     bool unregister(const int fd);
 
+    void initialize()
+    {
+        version (Windows)
+        {
+            foreach (i; 0 .. _workerThreadNum)
+                workerPool.run!handleEvent(this);
+        }
+    }
+    
+    void runLoop()
+    {
+        version (Windows)
+        {
+            beginAccept(this);
+        }
+        else
+        {
+            handleEvent();
+        }
+    }
+    
     void startLoop()
     {
         _runing = true;
