@@ -62,6 +62,10 @@ class EventLoop : LoopSelector
     {
         version (Posix)
         {
+            // For main thread.
+            signal(SIGPIPE, SIG_IGN);
+
+            // For background threads.
             sigset_t mask1;
             sigemptyset(&mask1);
             sigaddset(&mask1, SIGPIPE);
