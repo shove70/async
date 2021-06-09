@@ -1,7 +1,8 @@
 module async.container.bytebuffer;
 
 import std.container.dlist;
-import std.conv;
+import std.conv : to;
+import std.exception : enforce;
 
 struct ByteBuffer
 {
@@ -42,12 +43,9 @@ struct ByteBuffer
     }
 
     ubyte[] opSlice(const size_t low, const size_t high) @trusted
-    in
     {
-        assert((low <= high) && (high <= _size), "ByteBuffer.opSlice: Invalid arguments low, high");
-    }
-    body
-    {
+        enforce((low <= high) && (high <= _size), "ByteBuffer.opSlice: Invalid arguments low, high");
+
         ubyte[] ret;
 
         if (low == high)
@@ -84,12 +82,9 @@ struct ByteBuffer
     }
 
     ref ubyte opIndex(const size_t index) @trusted
-    in
     {
-        assert((index < _size), "ByteBuffer.opIndex: Invalid arguments index");
-    }
-    body
-    {
+        enforce((index < _size), "ByteBuffer.opIndex: Invalid arguments index");
+
         size_t size, start;
         foreach (a; _queue)
         {
