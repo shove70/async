@@ -50,7 +50,7 @@ private void go(ubyte[] data)
             }
             else
             {
-                if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK)
+                if (errno == EINTR || errno == EAGAIN/* || errno == EWOULDBLOCK*/)
                 {
                     len = 0;
                     continue;
@@ -81,7 +81,7 @@ private void go(ubyte[] data)
             }
             else
             {
-                if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK)
+                if (errno == EINTR || errno == EAGAIN/* || errno == EWOULDBLOCK*/)
                 {
                     len = 0;
                     continue;

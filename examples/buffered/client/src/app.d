@@ -69,7 +69,7 @@ private void go()
             }
             else
             {
-                if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK)
+                if (errno == EINTR || errno == EAGAIN/* || errno == EWOULDBLOCK*/)
                 {
                     len = 0;
                     continue;
@@ -138,7 +138,7 @@ private void go()
             }
             else
             {
-                if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK)
+                if (errno == EINTR || errno == EAGAIN/* || errno == EWOULDBLOCK*/)
                 {
                     len = 0;
                     continue;

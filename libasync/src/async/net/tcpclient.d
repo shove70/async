@@ -101,7 +101,7 @@ private:
                     {
                         continue;
                     }
-                    else if (errno == EAGAIN || errno == EWOULDBLOCK)
+                    else if (errno == EAGAIN/* || errno == EWOULDBLOCK*/)
                     {
                         break;
                     }
@@ -225,7 +225,7 @@ private:
                         {
                             continue;
                         }
-                        else if (errno == EAGAIN || errno == EWOULDBLOCK)
+                        else if (errno == EAGAIN/* || errno == EWOULDBLOCK*/)
                         {
                             if (client._currentEventType != EventType.READWRITE)
                             {
