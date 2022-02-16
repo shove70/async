@@ -1,14 +1,11 @@
 import std.stdio;
-import std.conv;
 import std.socket;
 import std.exception;
 import std.bitmanip;
-
 import async;
 import buffer;
 import buffer.rpc.server;
 import crypto.rsa;
-
 import package_business;
 
 __gshared Server!(Business) business;
@@ -22,8 +19,8 @@ void main()
     businessPool = new ThreadPool(32);
     business     = new Server!(Business)();
 
-    TcpListener listener = new TcpListener();
-    listener.bind(new InternetAddress("0.0.0.0", 12290));
+    auto listener = new TcpListener;
+    listener.bind(new InternetAddress(12290));
     listener.listen(1024);
 
     Codec codec = new Codec(CodecType.SizeGuide, 615);
@@ -36,14 +33,14 @@ void main()
 void onConnected(TcpClient client) nothrow @trusted
 {
     collectException({
-        writefln("New connection: %s, fd: %d", client.remoteAddress().toString(), client.fd);
+        writefln("New connection: %s, fd: %d", client.remoteAddress, client.fd);
     }());
 }
 
-void onDisConnected(const int fd, string remoteAddress) nothrow @trusted
+void onDisConnected(TcpClient client) nothrow @trusted
 {
     collectException({
-        writefln("\033[7mClient socket close: %s, fd: %d\033[0m", remoteAddress, fd);
+        writefln("\033[7mClient socket close: %s, fd: %d\033[0m", client.remoteAddress, client.fd);
     }());
 }
 
@@ -60,23 +57,24 @@ void businessHandle(TcpClient client, const scope ubyte[] buffer)
     client.send(ret_data);
 }
 
-void onSocketError(const int fd, string remoteAddress, string msg) nothrow @trusted
+void onSocketError(TcpClient client, string msg) nothrow @trusted
 {
     collectException({
-        writeln("Client socket error: ", remoteAddress, " ", msg);
+        writeln("Client socket error: ", client.remoteAddress, " ", msg);
     }());
 }
 
-void onSendCompleted(const int fd, string remoteAddress, const scope ubyte[] data, const size_t sent_size) nothrow @trusted
+void onSendCompleted(TcpClient client, const scope ubyte[] data, const size_t sent_size) nothrow @trusted
 {
     collectException({
         if (sent_size != data.length)
         {
-            writefln("Send to %s Error. Original size: %d, sent: %d, fd: %d", remoteAddress, data.length, sent_size, fd);
+            writefln("Send to %s Error. Original size: %d, sent: %d, fd: %d",
+                client.remoteAddress, data.length, sent_size, client.fd);
         }
         else
         {
-            writefln("Sent to %s completed, Size: %d, fd: %d", remoteAddress, sent_size, fd);
+            writefln("Sent to %s completed, Size: %d, fd: %d", client.remoteAddress, sent_size, client.fd);
         }
     }());
 }

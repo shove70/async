@@ -15,12 +15,12 @@ mixin(LoadBufferFile!"account.buffer");
 
 __gshared RSAKeyInfo publicKey;
 
-void main(string[] argv)
+void main()
 {
     publicKey = RSA.decodeKey("AAAAIH4RaeCOInmS/CcWOrurajxk3dZ4XGEZ9MsqT3LnFqP3/uk=");
     Message.settings(615, publicKey, true);
-    
-    for (int i = 0; i < 200; i++)
+
+    foreach (i; 0..200)
     {
         new Thread( { go(); } ).start();
     }
@@ -30,16 +30,16 @@ shared long total = 0;
 
 private void go()
 {
-    for (int i = 0; i < 100000; i++)
+    for (int i; i < 100000; i++)
     {
         i++;
-        LoginRequest req = new LoginRequest();
+        auto req = new LoginRequest;
         req.idOrMobile = "userId";
         req.password   = "******";
         req.UDID       = Clock.currTime().toUnixTime().to!string;
         ubyte[] buf = req.serialize("login");
 
-        TcpSocket socket = new TcpSocket();
+        auto socket = new TcpSocket;
 
         try
         {
@@ -60,26 +60,23 @@ private void go()
             {
                 continue;
             }
-            else if (len == 0)
+            if (len == 0)
             {
-                writefln("Server socket close at send. Local socket: %s", socket.localAddress().toString());
+                writefln("Server socket close at send. Local socket: %s", socket.localAddress);
                 socket.close();
 
                 return;
             }
-            else
+            if (errno == EINTR || errno == EAGAIN/* || errno == EWOULDBLOCK*/)
             {
-                if (errno == EINTR || errno == EAGAIN/* || errno == EWOULDBLOCK*/)
-                {
-                    len = 0;
-                    continue;
-                }
-
-                writefln("Socket error at send. Local socket: %s, error: %s", socket.localAddress().toString(), formatSocketError(errno));
-                socket.close();
-
-                return;
+                len = 0;
+                continue;
             }
+
+            writefln("Socket error at send. Local socket: %s, error: %s", socket.localAddress, formatSocketError(errno));
+            socket.close();
+
+            return;
         }
 
         ubyte[] buffer;
@@ -89,7 +86,7 @@ private void go()
 
         if (len != ushort.sizeof)
         {
-            writefln("Socket error at receive1. Local socket: %s, error: %s", socket.localAddress().toString(), formatSocketError(errno));
+            writefln("Socket error at receive1. Local socket: %s, error: %s", socket.localAddress, formatSocketError(errno));
             socket.close();
 
             return;
@@ -97,25 +94,25 @@ private void go()
 
         if (buf.peek!ushort(0) != 615)
         {
-            writefln("Head isn't 407. Local socket: %s", socket.localAddress().toString());
+            writefln("Head isn't 407. Local socket: %s", socket.localAddress);
             socket.close();
 
             return;
         }
 
         buffer ~= buf;
-        
+
         buf = new ubyte[int.sizeof];
         len = socket.receive(buf);
 
         if (len != int.sizeof)
         {
-            writefln("Socket error at receive2. Local socket: %s, error: %s", socket.localAddress().toString(), formatSocketError(errno));
+            writefln("Socket error at receive2. Local socket: %s, error: %s", socket.localAddress, formatSocketError(errno));
             socket.close();
 
             return;
         }
-        
+
         size_t size = buf.peek!int(0);
         buffer ~= buf;
 
@@ -131,7 +128,7 @@ private void go()
             }
             else if (len == 0)
             {
-                writefln("Server socket close at receive. Local socket: %s", socket.localAddress().toString());
+                writefln("Server socket close at receive. Local socket: %s", socket.localAddress);
                 socket.close();
 
                 return;
@@ -144,7 +141,7 @@ private void go()
                     continue;
                 }
 
-                writeln("Socket error at receive3. Local socket: %s, error: %s", socket.localAddress().toString(), formatSocketError(errno));
+                writeln("Socket error at receive3. Local socket: %s, error: %s", socket.localAddress, formatSocketError(errno));
                 socket.close();
 
                 return;
@@ -156,7 +153,7 @@ private void go()
         core.atomic.atomicOp!"+="(total, 1);
         socket.shutdown(SocketShutdown.BOTH);
         socket.close();
-        
+
         LoginResponse res = Message.deserialize!LoginResponse(buffer);
         writefln("result: %d, description: %s, userId: %d, token: %s, name: %s, mobile: %s", res.result, res.description, res.userId, res.token, res.name, (Clock.currTime() - SysTime.fromUnixTime(res.mobile.to!long)).total!"seconds");
         Thread.sleep(50.msecs);

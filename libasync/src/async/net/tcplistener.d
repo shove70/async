@@ -4,38 +4,38 @@ import std.socket;
 
 class TcpListener
 {
-    this()
-    {
-        this(new TcpSocket());
-        _socket.reusePort = true;
+	this()
+	{
+		this(new TcpSocket());
+		socket.reusePort = true;
 
-        Linger optLinger;
-        optLinger.on   = 1;
-        optLinger.time = 0;
-        setOption(SocketOptionLevel.SOCKET, SocketOption.LINGER, optLinger);
-    }
+		Linger optLinger;
+		optLinger.on   = 1;
+		optLinger.time = 0;
+		setOption(SocketOptionLevel.SOCKET, SocketOption.LINGER, optLinger);
+	}
 
-    void close() @trusted nothrow @nogc
-    {
-        _socket.shutdown(SocketShutdown.BOTH);
-        _socket.close();
-    }
+	void close() @trusted nothrow @nogc
+	{
+		socket.shutdown(SocketShutdown.BOTH);
+		socket.close();
+	}
 
-    this(Socket socket)
-    {
-        import std.datetime;
+	this(Socket socket)
+	{
+		import std.datetime;
 
-        _socket = socket;
-        version (Windows) { } else _socket.blocking = false;
+		socket = socket;
+		version (Windows) { } else socket.blocking = false;
 
-        setOption(SocketOptionLevel.SOCKET, SocketOption.RCVTIMEO, 60.seconds);
-        setOption(SocketOptionLevel.SOCKET, SocketOption.SNDTIMEO, 60.seconds);
-    }
+		setOption(SocketOptionLevel.SOCKET, SocketOption.RCVTIMEO, 60.seconds);
+		setOption(SocketOptionLevel.SOCKET, SocketOption.SNDTIMEO, 60.seconds);
+	}
 
 	@property final int fd() pure nothrow @nogc { return cast(int)handle; }
 
-    Socket _socket;
-    alias _socket this;
+	Socket socket;
+	alias socket this;
 }
 
 @property bool reusePort(Socket socket)
