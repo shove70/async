@@ -26,7 +26,7 @@ else
 
 class EventLoop : LoopSelector
 {
-    this(TcpListener listener, OnConnected onConnected = null, OnDisConnected onDisconnected = null,
+    this(TcpListener listener, OnConnected onConnected = null, OnDisconnected onDisconnected = null,
         OnReceive onReceive = null, OnSendCompleted onSendCompleted = null,
         OnSocketError onSocketError = null, Codec codec = null, int workerThreadNum = 0)
     {
