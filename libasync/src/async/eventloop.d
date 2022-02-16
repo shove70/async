@@ -1,64 +1,34 @@
 module async.eventloop;
 
-import std.stdio;
-import std.socket;
-import std.parallelism : totalCPUs;
-
-import async.event.selector;
-import async.net.tcplistener;
-import async.codec;
+import
+    async.codec,
+    async.event.selector,
+    async.net.tcplistener,
+    std.socket;
 
 version (Posix)
 {
     import core.sys.posix.signal;
 }
-
 version (linux)
 {
     import async.event.epoll;
 }
-else version (OSX)
-{
-    import async.event.kqueue;
-}
-else version (iOS)
-{
-    import async.event.kqueue;
-}
-else version (TVOS)
-{
-    import async.event.kqueue;
-}
-else version (WatchOS)
-{
-    import async.event.kqueue;
-}
-else version (FreeBSD)
-{
-    import async.event.kqueue;
-}
-else version (OpenBSD)
-{
-    import async.event.kqueue;
-}
-else version (DragonFlyBSD)
-{
-    import async.event.kqueue;
-}
-else version (Windows)
-{
-    import async.event.iocp;
-}
 else
 {
-    static assert(false, "Unsupported platform.");
+    import async.event.kqueue;
+    version(KQUEUE) { } else version (Windows)
+    {
+        import async.event.iocp;
+    }
+    else static assert(0, "Unsupported platform.");
 }
 
 class EventLoop : LoopSelector
 {
-    this(TcpListener listener,
-        OnConnected onConnected, OnDisConnected onDisConnected, OnReceive onReceive, OnSendCompleted onSendCompleted,
-        OnSocketError onSocketError, Codec codec = null, const int workerThreadNum = totalCPUs * 2 + 2)
+    this(TcpListener listener, OnConnected onConnected = null, OnDisConnected onDisconnected = null,
+        OnReceive onReceive = null, OnSendCompleted onSendCompleted = null,
+        OnSocketError onSocketError = null, Codec codec = null, int workerThreadNum = 0)
     {
         version (Posix)
         {
@@ -73,13 +43,13 @@ class EventLoop : LoopSelector
             sigprocmask(SIG_BLOCK, &mask1, null);
         }
 
-        super(listener, onConnected, onDisConnected, onReceive, onSendCompleted, onSocketError, codec, workerThreadNum);
+        super(listener, onConnected, onDisconnected, onReceive, onSendCompleted, onSocketError, codec, workerThreadNum);
     }
 
     void run()
     {
-        writefln("Start listening to %s...", _listener.localAddress().toString());
-
+        import std.experimental.logger;
+        debug infof("Start listening to %s...", _listener.localAddress);
         startLoop();
     }
 }

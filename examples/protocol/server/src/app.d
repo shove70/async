@@ -9,7 +9,7 @@ import async;
 void main()
 {
     TcpListener listener = new TcpListener();
-    listener.bind(new InternetAddress("0.0.0.0", 12290));
+    listener.bind(new InternetAddress(12290));
     listener.listen(10);
 
     Codec codec = new Codec(CodecType.SizeGuide);

@@ -1,35 +1,27 @@
 module async.container.map;
 
 import core.sync.mutex;
-
 import std.exception;
-import std.typecons;
-import std.traits : isArray;
 
 class Map(TKey, TValue)
 {
-    this()
-    {
-        _lock = new Mutex;
+    this() { _lock = new Mutex; }
+
+    pure nothrow @safe {
+        bool exists(TKey key) const { return (key in _data) !is null; }
+
+        @nogc:
+            bool empty() const { return _data.length == 0; }
+
+            size_t length() const { return _data.length; }
     }
 
-    @property bool empty() const
-    {
-        return (_data.length == 0);
-    }
+    alias opDollar = length;
 
-    @property size_t length() const
+    ref auto opIndex(TKey key) @safe
     {
-        return _data.length;
-    }
+        import std.traits : isArray;
 
-    @property size_t opDollar() const
-    {
-        return _data.length;
-    }
-
-    ref auto opIndex(TKey key)
-    {
         synchronized (_lock)
         {
             if (key !in _data)
@@ -48,7 +40,7 @@ class Map(TKey, TValue)
         }
     }
 
-    void opIndexAssign(TValue value, TKey key)
+    void opIndexAssign(TValue value, TKey key) @safe
     {
         synchronized (_lock)
         {
@@ -56,29 +48,35 @@ class Map(TKey, TValue)
         }
     }
 
-    @property ref auto front() inout
-    {
-        if (_data.length == 0)
+    @property pure nothrow @safe {
+        ref auto front() inout
         {
-            return null;
+            if (!_data.length)
+            {
+                return null;
+            }
+
+            return _data[_data.keys[0]];
         }
 
-        return _data[_data.keys[0]];
-    }
-
-    @property ref auto back() inout
-    {
-        if (_data.length == 0)
+        ref auto back() inout
         {
-            return null;
+            if (!_data.length)
+            {
+                return null;
+            }
+
+            return _data[_data.keys[$ - 1]];
         }
 
-        return _data[_data.keys[$ - 1]];
+        TKey[] keys() { return _data.keys; }
+
+        TValue[] values() { return _data.values; }
     }
 
     int opApply(scope int delegate(ref TValue) dg)
     {
-        int result = 0;
+        int result;
 
         foreach (d; _data)
         {
@@ -95,7 +93,7 @@ class Map(TKey, TValue)
 
     int opApply(scope int delegate(TKey, ref TValue) dg)
     {
-        int result = 0;
+        int result;
 
         foreach (k, d; _data)
         {
@@ -108,25 +106,6 @@ class Map(TKey, TValue)
         }
 
         return result;
-    }
-
-    @property TKey[] keys()
-    {
-        return _data.keys;
-    }
-
-    @property TValue[] values()
-    {
-        return _data.values;
-    }
-
-    bool exists(TKey key)
-    {
-        if (key in _data)
-        {
-            return true;
-        }
-        return false;
     }
 
     void remove(TKey key)
@@ -145,18 +124,11 @@ class Map(TKey, TValue)
         }
     }
 
-    void lock()
-    {
-        _lock.lock();
-    }
+    void lock() @safe { _lock.lock(); }
 
-    void unlock()
-    {
-        _lock.unlock();
-    }
+    void unlock() @safe { _lock.unlock(); }
 
 private:
-
     TValue[TKey] _data;
     Mutex        _lock;
 }

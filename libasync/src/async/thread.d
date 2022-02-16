@@ -4,27 +4,19 @@ import std.parallelism : TaskPool, task, totalCPUs;
 
 class ThreadPool
 {
-    this(int size)
-    {
-        if (size <= 0)
-        {
-            size = totalCPUs * 2 + 2;
-        }
+	this(uint size = 0)
+	{
+		_pool = new TaskPool(size ? size : totalCPUs * 2 + 2);
+	}
 
-        _pool = new TaskPool(size);
-    }
+	~this() { _pool.finish(true); }
 
-    ~this()
-    {
-        _pool.finish(true);
-    }
+	@property size_t size() @safe const pure nothrow { return _pool.size; }
 
-    void run(alias fn, Args...)(Args args)
-    {
-        _pool.put(task!fn(args));
-    }
+	void run(alias fn, Args...)(Args args)
+	{
+		_pool.put(task!fn(args));
+	}
 
-private:
-
-    TaskPool _pool;
+	private TaskPool _pool;
 }

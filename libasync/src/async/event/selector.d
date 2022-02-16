@@ -17,7 +17,7 @@ alias OnDisConnected  = void function(const int, string)                        
 alias OnReceive       = void function(TcpClient, const scope ubyte[])                       nothrow @trusted;
 alias OnSendCompleted = void function(const int, string, const scope ubyte[], const size_t) nothrow @trusted;
 alias OnSocketError   = void function(const int, string, string)                            nothrow @trusted;
-
+alias OnDisconnected = OnDisConnected;
 enum EventType
 {
     ACCEPT, READ, WRITE, READWRITE
@@ -44,14 +44,11 @@ abstract class Selector
         workerPool = new ThreadPool(_workerThreadNum);
     }
 
-    ~this()
-    {
-        dispose();
-    }
+	~this() { dispose(); }
 
-    bool register  (const int fd, EventType et);
-    bool reregister(const int fd, EventType et);
-    bool unregister(const int fd);
+	bool register  (int fd, EventType et);
+	bool reregister(int fd, EventType et);
+	bool unregister(int fd);
 
     void initialize()
     {
@@ -61,7 +58,7 @@ abstract class Selector
                 workerPool.run!handleEvent(this);
         }
     }
-    
+
     void runLoop()
     {
         version (Windows)
@@ -73,7 +70,7 @@ abstract class Selector
             handleEvent();
         }
     }
-    
+
     void startLoop()
     {
         _runing = true;
@@ -161,8 +158,8 @@ abstract class Selector
 
     version (Windows)
     {
-        void iocp_send(const int fd, const scope ubyte[] data);
-        void iocp_receive(const int fd);
+		void iocp_send(int fd, const scope void[] data);
+		void iocp_receive(int fd);
     }
 
     @property Codec codec()

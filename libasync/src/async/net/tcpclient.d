@@ -14,15 +14,14 @@ import std.typecons : Tuple;
 
 import async.event.selector;
 import async.eventloop;
-import async.net.tcpstream;
+import async.net.tcplistener;
 import async.container.bytebuffer;
 
-class TcpClient : TcpStream
+class TcpClient : TcpListener
 {
     this(Selector selector, Socket socket)
     {
         super(socket);
-
         _selector           = selector;
         _remoteAddress      = remoteAddress.toString();
         _fd                 = fd;
@@ -59,7 +58,6 @@ class TcpClient : TcpStream
     }
 
 private:
-
     version (Windows) { } else
     {
         void beginRead()
@@ -78,7 +76,7 @@ private:
         protected static void read(TcpClient client)
         {
             ubyte[]     data;
-            ubyte[4096] buffer;
+			ubyte[4096] buffer = void;
 
             while (!client._closing && client.isAlive)
             {
@@ -122,9 +120,9 @@ private:
                 else
                 {
                     client._receiveBuffer ~= data;
-                    
+
                     label_parseOne:
-                    const Tuple!(long, size_t) ret = client._selector.codec.decode(client._receiveBuffer);
+					const ret = client._selector.codec.decode(client._receiveBuffer);
 
                     if (ret[0] >= 0)
                     {
@@ -284,7 +282,7 @@ public:
 
     version (Windows)
     {
-        int send(const scope ubyte[] data)
+		int send(const(void)[] data) @trusted
         {
             if (data.length == 0)
             {
@@ -326,12 +324,10 @@ public:
         }
     }
 
-    void close()
+    override void close()
     {
         _closing = true;
-
-        _socket.shutdown(SocketShutdown.BOTH);
-        _socket.close();
+        super.close();
     }
 
     /*
@@ -348,8 +344,6 @@ public:
             _selector.removeClient(fd);
         }
     }
-
-public:
 
     string           _remoteAddress;
     int              _fd;

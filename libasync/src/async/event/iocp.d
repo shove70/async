@@ -1,237 +1,208 @@
 module async.event.iocp;
 
-debug import std.stdio;
-
 version (Windows):
 
-import core.stdc.errno;
-
-import core.sys.windows.windows;
-import core.sys.windows.winsock2;
-import core.sys.windows.mswsock;
-
-import std.socket;
-
-import async.event.selector;
-import async.net.tcpstream;
-import async.net.tcplistener;
-import async.net.tcpclient;
-import async.codec;
+import
+	async.codec,
+	async.event.selector,
+	async.net.tcplistener,
+	core.stdc.errno,
+	core.sys.windows.mswsock,
+	core.sys.windows.windows,
+	core.sys.windows.winsock2,
+	std.socket;
 
 alias LoopSelector = Iocp;
 
 class Iocp : Selector
 {
-    this(TcpListener listener,
-        OnConnected onConnected, OnDisConnected onDisConnected, OnReceive onReceive, OnSendCompleted onSendCompleted,
-        OnSocketError onSocketError, Codec codec, const int workerThreadNum)
-    {
-        super(listener, onConnected, onDisConnected, onReceive, onSendCompleted, onSocketError, codec, workerThreadNum);
+	this(TcpListener listener, OnConnected onConnected = null, OnDisconnected onDisconnected = null,
+		OnReceive onReceive = null, OnSendCompleted onSendCompleted = null,
+		OnSocketError onSocketError = null, Codec codec = null, uint workerThreadNum = 0)
+	{
+		super(listener, onConnected, onDisconnected, onReceive, onSendCompleted, onSocketError, codec, workerThreadNum);
 
-        _eventHandle = CreateIoCompletionPort(INVALID_HANDLE_VALUE, null, 0, _workerThreadNum);
-    }
+		_eventHandle = CreateIoCompletionPort(INVALID_HANDLE_VALUE, null, 0, cast(uint)workerPool.size);
+	}
 
-    override bool register(const int fd, EventType et)
-    {
-        if (fd < 0)
-        {
-            return false;
-        }
+	override bool register(int fd, EventType et)
+	{
+		if (fd < 0)
+		{
+			return false;
+		}
 
-        return (CreateIoCompletionPort(cast(HANDLE)fd, _eventHandle, cast(size_t)(cast(void*) fd), 0) != null);
-    }
+		return CreateIoCompletionPort(cast(HANDLE)fd, _eventHandle, fd, 0) != null;
+	}
 
-    override bool reregister(const int fd, EventType et)
-    {
-        if (fd < 0)
-        {
-            return false;
-        }
+	override bool reregister(int fd, EventType et)
+	{
+		return fd >= 0;
+	}
 
-        return true;
-    }
+	override bool unregister(int fd)
+	{
+		return fd >= 0;
+	}
 
-    override bool unregister(const int fd)
-    {
-        if (fd < 0)
-        {
-            return false;
-        }
+	static void handleEvent(Selector selector)
+	{
+		OVERLAPPED* overlapped;
+		IocpContext* context = void;
+		WSABUF buffSend;
+		uint dwSendNumBytes;
+		uint dwFlags;
 
-        return true;
-    }
+		while (selector._runing)
+		{
+			ULONG_PTR key = void;
+			DWORD bytes;
+			int ret = GetQueuedCompletionStatus(selector._eventHandle, &bytes, &key, &overlapped, INFINITE);
+			context = cast(IocpContext*) overlapped;
 
-    static void handleEvent(Selector selector)
-    {
-        OVERLAPPED* overlapped;
-        IocpContext* context;
-        WSABUF buffSend;
-        uint dwSendNumBytes;
-        uint dwFlags;
-        DWORD bytes;
-        int ret;
+			if (ret == 0)
+			{
+				immutable err = GetLastError();
+				if (err != WAIT_TIMEOUT)
+					if (context)
+					{
+						selector.removeClient(context.fd, err);
+					}
 
-        while (selector._runing)
-        {
-            ULONG_PTR key;
-            bytes = 0;
-            ret = GetQueuedCompletionStatus(selector._eventHandle, &bytes, &key, &overlapped, INFINITE);
-            context = cast(IocpContext*) overlapped;
+				continue;
+			}
 
-            if (ret == 0)
-            {
-                immutable err = GetLastError();
-                if (err == WAIT_TIMEOUT)
-                    continue;
+			if (bytes == 0)
+			{
+				selector.removeClient(context.fd, 0);
+				continue;
+			}
 
-                if (context !is null)
-                {
-                    selector.removeClient(context.fd, err);
-                    debug writeln("Close event: ", context.fd);
-                }
+			if (context.operation == IocpOperation.read) // A read operation complete.
+			{
+				selector.read(context.fd, cast(ubyte[]) context.wsabuf.buf[0..bytes]);
 
-                continue;
-            }
+				// Read operation completed, so post Read operation for remainder (if exists).
+				selector.iocp_receive(context.fd);
+			}
+			else if (context.operation == IocpOperation.write) // A write operation complete.
+			{
+				context.nSentBytes += bytes;
+				dwFlags = 0;
 
-            if (bytes == 0)
-            {
-                selector.removeClient(context.fd, 0);
-                debug writeln("Close event: ", context.fd);
+				if (context.nSentBytes < context.nTotalBytes)
+				{
+					// A Write operation has not completed yet, so post another.
+					// Write operation to post remaining data.
+					context.operation = IocpOperation.write;
+					buffSend.buf = context.buffer.ptr + context.nSentBytes;
+					buffSend.len = context.nTotalBytes - context.nSentBytes;
+					ret = WSASend(cast(SOCKET) context.fd, &buffSend, 1, &dwSendNumBytes, dwFlags, &(context.overlapped), null);
 
-                continue;
-            }
+					if (ret == SOCKET_ERROR)
+					{
+						immutable err = WSAGetLastError();
 
-            if (context.operation == IocpOperation.read) // A read operation complete.
-            {
-                selector.read(context.fd, cast(ubyte[]) context.wsabuf.buf[0..bytes]);
+						if (err != ERROR_IO_PENDING)
+						{
+							selector.removeClient(context.fd, err);
 
-                // Read operation completed, so post Read operation for remainder (if exists).
-                selector.iocp_receive(context.fd);
-            }
-            else if (context.operation == IocpOperation.write) // A write operation complete.
-            {
-                context.nSentBytes += bytes;
-                dwFlags = 0;
+							continue;
+						}
+					}
+				}
+				else
+				{
+					// Write operation completed, so post Read operation.
+					selector.iocp_receive(context.fd);
+				}
+			}
+		}
+	}
 
-                if (context.nSentBytes < context.nTotalBytes)
-                {
-                    // A Write operation has not completed yet, so post another.
-                    // Write operation to post remaining data.
-                    context.operation = IocpOperation.write;
-                    buffSend.buf = context.buffer.ptr + context.nSentBytes;
-                    buffSend.len = context.nTotalBytes - context.nSentBytes;
-                    ret = WSASend(cast(SOCKET) context.fd, &buffSend, 1, &dwSendNumBytes, dwFlags, &(context.overlapped), null);
+	override void iocp_receive(int fd)
+	{
+		auto context = new IocpContext;
+		context.operation   = IocpOperation.read;
+		context.nTotalBytes = 0;
+		context.nSentBytes  = 0;
+		context.wsabuf.buf  = context.buffer.ptr;
+		context.wsabuf.len  = context.buffer.sizeof;
+		context.fd          = fd;
+		uint dwRecvNumBytes;
+		uint dwFlags;
+		int ret = WSARecv(cast(HANDLE) fd, &context.wsabuf, 1, &dwRecvNumBytes, &dwFlags, &context.overlapped, null);
 
-                    if (ret == SOCKET_ERROR)
-                    {
-                        immutable err = WSAGetLastError();
+		if (ret == SOCKET_ERROR)
+		{
+			immutable err = WSAGetLastError();
 
-                        if (err != ERROR_IO_PENDING)
-                        {
-                            selector.removeClient(context.fd, err);
-                            debug writeln("Close event: ", context.fd);
+			if (err != ERROR_IO_PENDING)
+			{
+				removeClient(fd, err);
+			}
+		}
+	}
 
-                            continue;
-                        }
-                    }
-                }
-                else
-                {
-                    // Write operation completed, so post Read operation.
-                    selector.iocp_receive(context.fd);
-                }
-            }
-        }
-    }
+	override void iocp_send(int fd, const scope void[] data)
+	{
+		for (size_t pos; pos < data.length;)
+		{
+			size_t len = data.length - pos;
+			len = len > BUFFERSIZE ? BUFFERSIZE : len;
 
-    override void iocp_receive(const int fd)
-    {
-        IocpContext* context = new IocpContext();
-        context.operation   = IocpOperation.read;
-        context.nTotalBytes = 0;
-        context.nSentBytes  = 0;
-        context.wsabuf.buf  = context.buffer.ptr;
-        context.wsabuf.len  = context.buffer.sizeof;
-        context.fd          = fd;
-        uint dwRecvNumBytes = 0;
-        uint dwFlags = 0;
-        int ret = WSARecv(cast(HANDLE) fd, &context.wsabuf, 1, &dwRecvNumBytes, &dwFlags, &context.overlapped, null);
+			IocpContext* context = new IocpContext();
+			context.operation  = IocpOperation.write;
+			context.buffer[0..len] = cast(char[]) data[pos..pos + len];
+			context.nTotalBytes = cast(int) len;
+			context.nSentBytes  = 0;
+			context.wsabuf.buf  = context.buffer.ptr;
+			context.wsabuf.len  = cast(int) len;
+			context.fd          = fd;
+			uint dwSendNumBytes = void;
+			enum dwFlags = 0;
+			int ret = WSASend(cast(HANDLE) fd, &context.wsabuf, 1, &dwSendNumBytes, dwFlags, &context.overlapped, null);
 
-        if (ret == SOCKET_ERROR)
-        {
-            immutable err = WSAGetLastError();
+			if (ret == SOCKET_ERROR)
+			{
+				immutable err = WSAGetLastError();
 
-            if (err != ERROR_IO_PENDING)
-            {
-                removeClient(fd, err);
-                debug writeln("Close event: ", fd);
-            }
-        }
-    }
+				if (err != ERROR_IO_PENDING)
+				{
+					removeClient(fd, err);
+					return;
+				}
+			}
 
-    override void iocp_send(const int fd, const scope ubyte[] data)
-    {
-        size_t pos;
-        while (pos < data.length)
-        {
-            size_t len = data.length - pos;
-            len = ((len > BUFFERSIZE) ? BUFFERSIZE : len);
-
-            IocpContext* context = new IocpContext();
-            context.operation  = IocpOperation.write;
-            context.buffer[0..len] = cast(char[]) data[pos..pos + len];
-            context.nTotalBytes = cast(int) len;
-            context.nSentBytes  = 0;
-            context.wsabuf.buf  = context.buffer.ptr;
-            context.wsabuf.len  = cast(int) len;
-            context.fd          = fd;
-            uint dwSendNumBytes = 0;
-            immutable uint dwFlags = 0;
-            int ret = WSASend(cast(HANDLE) fd, &context.wsabuf, 1, &dwSendNumBytes, dwFlags, &context.overlapped, null);
-
-            if (ret == SOCKET_ERROR)
-            {
-                immutable err = WSAGetLastError();
-
-                if (err != ERROR_IO_PENDING)
-                {
-                    removeClient(fd, err);
-                    debug writeln("Close event: ", fd);
-
-                    return;
-                }
-            }
-
-            pos += len;
-        }
-    }
+			pos += len;
+		}
+	}
 }
 
 private:
 
 enum IocpOperation
 {
-    accept,
-    connect,
-    read,
-    write,
-    event,
-    close
+	accept,
+	connect,
+	read,
+	write,
+	event,
+	close
 }
 
-immutable BUFFERSIZE = 4096 * 2;
+enum BUFFERSIZE = 4096 * 2;
 
 struct IocpContext
 {
-    OVERLAPPED       overlapped;
-    char[BUFFERSIZE] buffer;
-    WSABUF           wsabuf;
-    int              nTotalBytes;
-    int              nSentBytes;
-    IocpOperation    operation;
-    int              fd;
+	OVERLAPPED       overlapped;
+	char[BUFFERSIZE] buffer;
+	WSABUF           wsabuf;
+	int              nTotalBytes;
+	int              nSentBytes;
+	IocpOperation    operation;
+	int              fd;
 }
-
 
 extern (Windows):
 
