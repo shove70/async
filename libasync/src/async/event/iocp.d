@@ -27,12 +27,7 @@ class Iocp : Selector
 
 	override bool register(int fd, EventType et)
 	{
-		if (fd < 0)
-		{
-			return false;
-		}
-
-		return CreateIoCompletionPort(cast(HANDLE)fd, _eventHandle, fd, 0) != null;
+		return fd >= 0 && CreateIoCompletionPort(cast(HANDLE)fd, _eventHandle, fd, 0) != null;
 	}
 
 	override bool reregister(int fd, EventType et)
@@ -83,7 +78,7 @@ class Iocp : Selector
 				selector.read(context.fd, cast(ubyte[]) context.wsabuf.buf[0..bytes]);
 
 				// Read operation completed, so post Read operation for remainder (if exists).
-				selector.iocp_receive(context.fd);
+				iocp_receive(selector, context.fd);
 			}
 			else if (context.operation == IocpOperation.write) // A write operation complete.
 			{
@@ -106,7 +101,6 @@ class Iocp : Selector
 						if (err != ERROR_IO_PENDING)
 						{
 							selector.removeClient(context.fd, err);
-
 							continue;
 						}
 					}
@@ -114,13 +108,13 @@ class Iocp : Selector
 				else
 				{
 					// Write operation completed, so post Read operation.
-					selector.iocp_receive(context.fd);
+					iocp_receive(selector, context.fd);
 				}
 			}
 		}
 	}
 
-	override void iocp_receive(int fd)
+	static void iocp_receive(Selector selector, int fd) nothrow
 	{
 		auto context = new IocpContext;
 		context.operation   = IocpOperation.read;
@@ -139,12 +133,12 @@ class Iocp : Selector
 
 			if (err != ERROR_IO_PENDING)
 			{
-				removeClient(fd, err);
+				selector.removeClient(fd, err);
 			}
 		}
 	}
 
-	override void iocp_send(int fd, const scope void[] data)
+	static void iocp_send(Selector selector, int fd, const scope void[] data) nothrow
 	{
 		for (size_t pos; pos < data.length;)
 		{
@@ -169,7 +163,7 @@ class Iocp : Selector
 
 				if (err != ERROR_IO_PENDING)
 				{
-					removeClient(fd, err);
+					selector.removeClient(fd, err);
 					return;
 				}
 			}
@@ -204,7 +198,7 @@ struct IocpContext
 	int              fd;
 }
 
-extern (Windows):
+extern (Windows) nothrow @nogc:
 
 alias POVERLAPPED_COMPLETION_ROUTINE = void function(DWORD, DWORD, OVERLAPPED*, DWORD);
 int WSASend(SOCKET, WSABUF*, DWORD, LPDWORD, DWORD,   OVERLAPPED*, POVERLAPPED_COMPLETION_ROUTINE);

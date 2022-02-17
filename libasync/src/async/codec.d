@@ -29,15 +29,15 @@ class Codec
 	{
 		this.ct = ct;
 
-		ubyte[] _magic = new ubyte[2];
-		_magic.write!ushort(magic, 0);
-		this.magic = _magic;
+		auto buf = new ubyte[2];
+		buf.write!ushort(magic, 0);
+		this.magic = buf;
 	}
 
 	/// Returns:
-	///   long: spliter position
+	///   ptrdiff_t: spliter position
 	///   size_t: spliter size
-	public Tuple!(long, size_t) decode(ref ByteBuffer buffer)
+	Tuple!(ptrdiff_t, size_t) decode(ref ByteBuffer buffer)
 	{
 		if (magic.length)
 		{
@@ -54,12 +54,12 @@ class Codec
 
 		if (ct == CodecType.TextLine)
 		{
-			long endPoint = -1;
+			ptrdiff_t endPoint = -1;
 
-			for (size_t i = 0; i < buffer.length; i++)
+			for (size_t i; i < buffer.length; i++)
 			{
 				const char ch = buffer[i];
-				if ((ch == '\r') || (ch == '\n'))
+				if (ch == '\r' || ch == '\n')
 				{
 					endPoint = i;
 					break;

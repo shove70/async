@@ -25,7 +25,7 @@ class TcpListener
 	{
 		import std.datetime;
 
-		socket = socket;
+		this.socket = socket;
 		version (Windows) { } else socket.blocking = false;
 
 		setOption(SocketOptionLevel.SOCKET, SocketOption.RCVTIMEO, 60.seconds);

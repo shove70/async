@@ -68,41 +68,46 @@ class Kqueue : Selector
 		super(listener, onConnected, onDisConnected, onReceive, onSendCompleted, onSocketError, codec, workerThreadNum);
 
 		_eventHandle = kqueue();
-		register(_listener.fd, EventType.ACCEPT);
+		reg(_listener.fd, EventType.ACCEPT);
 	}
 
-	override bool register(int fd, EventType et)
+	private bool reg(int fd, EventType et)
 	{
 		kevent_t[2] ev = void;
-		short  filter;
-		ushort flags;
+		short filter = void;
+		ushort flags = void;
 
 		if (et == EventType.ACCEPT)
 		{
 			filter = EVFILT_READ;
 			flags  = EV_ADD | EV_ENABLE;
-			EV_SET(&(ev[0]), fd, filter, flags, 0, 0, null);
+			EV_SET(&ev[0], fd, filter, flags, 0, 0, null);
 
-			return kevent(_eventHandle, &(ev[0]), 1, null, 0, null) >= 0;
+			return kevent(_eventHandle, &ev[0], 1, null, 0, null) >= 0;
 		}
 		else
 		{
 			filter = EVFILT_READ;
 			flags  = EV_ADD | EV_ENABLE | EV_CLEAR;
-			EV_SET(&(ev[0]), fd, filter, flags, 0, 0, null);
+			EV_SET(&ev[0], fd, filter, flags, 0, 0, null);
 
 			filter = EVFILT_WRITE;
 			flags  = EV_ADD | EV_CLEAR;
 			flags |= (et == EventType.READ) ? EV_DISABLE : EV_ENABLE;
-			EV_SET(&(ev[1]), fd, filter, flags, 0, 0, null);
+			EV_SET(&ev[1], fd, filter, flags, 0, 0, null);
 
 			return kevent(_eventHandle, &ev[0], 2, null, 0, null) >= 0;
 		}
 	}
 
+	override bool register(int fd, EventType et)
+	{
+		return reg(fd, et);
+	}
+
 	override bool reregister(int fd, EventType et)
 	{
-		return fd >= 0 && register(fd, et);
+		return fd >= 0 && reg(fd, et);
 	}
 
 	override bool unregister(int fd)
@@ -123,7 +128,7 @@ class Kqueue : Selector
 	{
 		kevent_t[64] events = void;
 		//auto tspec = timespec(1, 1000 * 10);
-		auto len = kevent(_eventHandle, null, 0, events.ptr, events.length, null);//&tspec);
+		const len = kevent(_eventHandle, null, 0, events.ptr, events.length, null);//&tspec);
 
 		foreach (i; 0 .. len)
 		{

@@ -26,7 +26,7 @@ void main()
     }
 }
 
-shared long total = 0;
+shared long total;
 
 private void go()
 {
@@ -47,7 +47,7 @@ private void go()
         }
         catch(Exception e)
         {
-            writeln(e.toString());
+            writeln(e);
             continue;
         }
 

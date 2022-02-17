@@ -30,6 +30,27 @@ class Epoll : Selector
 		register(_listener.fd, EventType.ACCEPT);
 	}
 
+	private int reg(int fd, EventType et, int op)
+	{
+		epoll_event ev;
+		ev.events  = EPOLLHUP | EPOLLERR;
+		ev.data.fd = fd;
+
+		if (et != EventType.ACCEPT)
+		{
+			ev.events |= EPOLLET;
+		}
+		if (et == EventType.ACCEPT || et == EventType.READ || et == EventType.READWRITE)
+		{
+			ev.events |= EPOLLIN;
+		}
+		if (et == EventType.WRITE || et == EventType.READWRITE)
+		{
+			ev.events |= EPOLLOUT;
+		}
+		return epoll_ctl(_eventHandle, op, fd, &ev);
+	}
+
 	override bool register(int fd, EventType et)
 	{
 		if (fd < 0)
@@ -37,29 +58,9 @@ class Epoll : Selector
 			return false;
 		}
 
-		epoll_event ev;
-		ev.events  = EPOLLHUP | EPOLLERR;
-		ev.data.fd = fd;
-
-		if (et != EventType.ACCEPT)
+		if (reg(fd, et, EPOLL_CTL_ADD) != 0)
 		{
-			ev.events |= EPOLLET;
-		}
-		if (et == EventType.ACCEPT || et == EventType.READ || et == EventType.READWRITE)
-		{
-			ev.events |= EPOLLIN;
-		}
-		if (et == EventType.WRITE || et == EventType.READWRITE)
-		{
-			ev.events |= EPOLLOUT;
-		}
-
-		if (epoll_ctl(_eventHandle, EPOLL_CTL_ADD, fd, &ev) != 0)
-		{
-			if (errno != EEXIST)
-			{
-				return false;
-			}
+			return errno == EEXIST;
 		}
 
 		return true;
@@ -67,45 +68,18 @@ class Epoll : Selector
 
 	override bool reregister(int fd, EventType et)
 	{
-		if (fd < 0)
-		{
-			return false;
-		}
-
-		epoll_event ev;
-		ev.events  = EPOLLHUP | EPOLLERR;
-		ev.data.fd = fd;
-
-		if (et != EventType.ACCEPT)
-		{
-			ev.events |= EPOLLET;
-		}
-		if (et == EventType.ACCEPT || et == EventType.READ || et == EventType.READWRITE)
-		{
-			ev.events |= EPOLLIN;
-		}
-		if (et == EventType.WRITE || et == EventType.READWRITE)
-		{
-			ev.events |= EPOLLOUT;
-		}
-
-		return epoll_ctl(_eventHandle, EPOLL_CTL_MOD, fd, &ev) == 0;
+		return fd >= 0 && reg(fd, et, EPOLL_CTL_MOD) == 0;
 	}
 
 	override bool unregister(int fd)
 	{
-		if (fd < 0)
-		{
-			return false;
-		}
-
-		return epoll_ctl(_eventHandle, EPOLL_CTL_DEL, fd, null) == 0;
+		return fd >= 0 && epoll_ctl(_eventHandle, EPOLL_CTL_DEL, fd, null) == 0;
 	}
 
 	override protected void handleEvent()
 	{
 		epoll_event[64] events = void;
-		const int len = epoll_wait(_eventHandle, events.ptr, events.length, -1);
+		const len = epoll_wait(_eventHandle, events.ptr, events.length, -1);
 
 		foreach (i; 0 .. len)
 		{

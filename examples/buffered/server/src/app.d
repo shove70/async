@@ -57,14 +57,14 @@ void businessHandle(TcpClient client, const scope ubyte[] buffer)
     client.send(ret_data);
 }
 
-void onSocketError(TcpClient client, string msg) nothrow @trusted
+void onSocketError(TcpClient client, int err) nothrow @trusted
 {
     collectException({
-        writeln("Client socket error: ", client.remoteAddress, " ", msg);
+        writeln("Client socket error: ", client.remoteAddress, " ", formatSocketError(err));
     }());
 }
 
-void onSendCompleted(TcpClient client, const scope ubyte[] data, const size_t sent_size) nothrow @trusted
+void onSendCompleted(TcpClient client, const scope ubyte[] data, size_t sent_size) nothrow @trusted
 {
     collectException({
         if (sent_size != data.length)

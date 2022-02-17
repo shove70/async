@@ -5,130 +5,70 @@ import std.exception;
 
 class Map(TKey, TValue)
 {
-    this() { _lock = new Mutex; }
+nothrow @safe:
+    this() { mutex = new Mutex; }
 
-    pure nothrow @safe {
-        bool exists(TKey key) const { return (key in _data) !is null; }
-
-        @nogc:
-            bool empty() const { return _data.length == 0; }
-
-            size_t length() const { return _data.length; }
-    }
-
-    alias opDollar = length;
-
-    ref auto opIndex(TKey key) @safe
+    ref auto opIndex(TKey key)
     {
         import std.traits : isArray;
 
-        synchronized (_lock)
+        lock();
+        scope(exit) unlock();
+        if (key !in data)
         {
-            if (key !in _data)
+            static if (isArray!TValue)
             {
-                static if (isArray!TValue)
-                {
-                    _data[key] = [];
-                }
-                else
-                {
-                    return null;
-                }
+                data[key] = [];
             }
-
-            return _data[key];
-        }
-    }
-
-    void opIndexAssign(TValue value, TKey key) @safe
-    {
-        synchronized (_lock)
-        {
-            _data[key] = value;
-        }
-    }
-
-    @property pure nothrow @safe {
-        ref auto front() inout
-        {
-            if (!_data.length)
+            else
             {
                 return null;
             }
+        }
 
-            return _data[_data.keys[0]];
+        return data[key];
+    }
+
+    void opIndexAssign(TValue value, TKey key)
+    {
+        lock();
+        data[key] = value;
+        unlock();
+    }
+
+    @property pure {
+        bool empty() const pure @nogc { return data.length == 0; }
+
+        ref auto front() inout
+        {
+            return data.length ? data[data.keys[0]] : null;
         }
 
         ref auto back() inout
         {
-            if (!_data.length)
-            {
-                return null;
-            }
-
-            return _data[_data.keys[$ - 1]];
+            return data.length ? data[data.keys[$ - 1]] : null;
         }
-
-        TKey[] keys() { return _data.keys; }
-
-        TValue[] values() { return _data.values; }
     }
 
-    int opApply(scope int delegate(ref TValue) dg)
+    bool remove(TKey key)
     {
-        int result;
-
-        foreach (d; _data)
-        {
-            result = dg(d);
-
-            if (result)
-            {
-                break;
-            }
-        }
-
-        return result;
+        lock();
+        scope(exit) unlock();
+        return data.remove(key);
     }
 
-    int opApply(scope int delegate(TKey, ref TValue) dg)
+    void clear() @trusted
     {
-        int result;
-
-        foreach (k, d; _data)
-        {
-            result = dg(k, d);
-
-            if (result)
-            {
-                break;
-            }
-        }
-
-        return result;
+        lock();
+        data.clear();
+        unlock();
     }
 
-    void remove(TKey key)
-    {
-        synchronized (_lock)
-        {
-            _data.remove(key);
-        }
-    }
+    final void lock() { mutex.lock_nothrow(); }
 
-    void clear()
-    {
-        synchronized (_lock)
-        {
-            _data.clear();
-        }
-    }
+    final void unlock() { mutex.unlock_nothrow(); }
 
-    void lock() @safe { _lock.lock(); }
-
-    void unlock() @safe { _lock.unlock(); }
-
-private:
-    TValue[TKey] _data;
-    Mutex        _lock;
+    TValue[TKey] data;
+    alias data this;
+    protected Mutex mutex;
 }

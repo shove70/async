@@ -3,6 +3,7 @@ module async.eventloop;
 import
 	async.codec,
 	async.event.selector,
+	async.net.tcpclient,
 	async.net.tcplistener,
 	std.socket;
 
@@ -44,6 +45,15 @@ class EventLoop : LoopSelector
 		}
 
 		super(listener, onConnected, onDisconnected, onReceive, onSendCompleted, onSocketError, codec, workerThreadNum);
+	}
+
+	this(TcpListener listener, OnConnected onConnected, OnDisconnected onDisconnected,
+		void function(TcpClient, const scope ubyte[]) nothrow @trusted onReceive, OnSendCompleted onSendCompleted = null,
+		OnSocketError onSocketError = null, Codec codec = null, uint workerThreadNum = 0)
+	{
+		import std.functional;
+		this(listener, onConnected, onDisconnected,
+			onReceive.toDelegate, onSendCompleted, onSocketError, codec, workerThreadNum);
 	}
 
 	void run()

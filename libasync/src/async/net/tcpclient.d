@@ -23,37 +23,33 @@ class TcpClient : TcpListener
 
 		version (Windows) { } else
 		{
-			_hasReadEvent     = false;
-			_hasWriteEvent    = false;
-			_reading          = false;
-			_writing          = false;
 			_sendLock         = new ReadWriteMutex(ReadWriteMutex.Policy.PREFER_WRITERS);
 			_currentEventType = EventType.READ;
 			_lastWriteOffset  = 0;
 		}
 	}
 
-	version (Windows) { } else void weakup(EventType event)
-	{
-		final switch (event)
-		{
-			case EventType.READ:
-				_hasReadEvent = true;
-				beginRead();
-				break;
-			case EventType.WRITE:
-				_hasWriteEvent = true;
-				beginWrite();
-				break;
-			case EventType.ACCEPT:
-			case EventType.READWRITE:
-				break;
-		}
-	}
-
-private:
 	version (Windows) { } else
 	{
+		void weakup(EventType event)
+		{
+			final switch (event)
+			{
+				case EventType.READ:
+					_hasReadEvent = true;
+					beginRead();
+					break;
+				case EventType.WRITE:
+					_hasWriteEvent = true;
+					beginWrite();
+					break;
+				case EventType.ACCEPT:
+				case EventType.READWRITE:
+					break;
+			}
+		}
+
+private:
 		void beginRead()
 		{
 			_hasReadEvent = false;
@@ -69,17 +65,16 @@ private:
 
 		protected static void read(TcpClient client)
 		{
-			ubyte[]     data;
+			ubyte[] data;
 			ubyte[4096] buffer = void;
 
 			while (!client._closing && client.isAlive)
 			{
-				long len = client._socket.receive(buffer);
+				auto len = client.socket.receive(buffer);
 
 				if (len > 0)
 				{
-					data ~= buffer[0 .. cast(uint)len];
-
+					data ~= buffer[0 .. len];
 					continue;
 				}
 				else if (len == 0)
@@ -96,34 +91,35 @@ private:
 				return;
 			}
 
-			if (data.length > 0 && (client._selector.onReceive !is null))
+			if (data.length && client._selector.onReceive)
 			{
-				if (client._selector.codec is null)
-				{
-					client._selector.onReceive(client, data);
-				}
-				else
+				if (client._selector.codec)
 				{
 					client._receiveBuffer ~= data;
 
-					label_parseOne:
-					const ret = client._selector.codec.decode(client._receiveBuffer);
-
-					if (ret[0] >= 0)
+					ptrdiff_t pos = void;
+					for (;;)
 					{
-						const ubyte[] message = client._receiveBuffer[0 .. ret[0]];
-						client._receiveBuffer.popFront(ret[0] + ret[1]);
+						const ret = client._selector.codec.decode(client._receiveBuffer);
+						pos = ret[0];
+
+						if (pos < 0)
+							break;
+						const ubyte[] message = client._receiveBuffer[0 .. pos];
+						client._receiveBuffer.popFront(pos + ret[1]);
 						client._selector.onReceive(client, message);
-						goto label_parseOne;
 					}
-					else if (ret[0] == -2) // The magic is error.
+					if (pos == -2) // The magic is error.
 					{
 						client.forceClose();
 						return;
 					}
 				}
+				else
+				{
+					client._selector.onReceive(client, data);
+				}
 			}
-
 			client.readCallback(0);
 		}
 
@@ -174,7 +170,7 @@ private:
 
 				while (!client._closing && client.isAlive && client._lastWriteOffset < client._writingData.length)
 				{
-					long len = client._socket.send(client._writingData[client._lastWriteOffset .. $]);
+					long len = client.socket.send(client._writingData[client._lastWriteOffset .. $]);
 
 					if (len > 0)
 					{
@@ -259,45 +255,32 @@ private:
 
 public:
 
-	version (Windows)
+	int send(const void[] data) nothrow @trusted
 	{
-		int send(const(void)[] data) @trusted
-		{
-			if (!data.length)
-			{
-				return -1;
-			}
+		if (!data.length)
+			return -1;
+		try {
 			if (!isAlive)
-			{
 				return -2;
-			}
+		} catch(Exception)
+			return -2;
 
-			_selector.iocp_send(fd, data);
-			return 0;
+		version (Windows)
+		{
+			import async.event.iocp;
+
+			Iocp.iocp_send(_selector, fd, data);
 		}
-	}
-	else
-	{
-		override ptrdiff_t send(const(void)[] data) @trusted
+		else
 		{
-			if (data.length == 0)
-			{
-				return -1;
-			}
-			if (!isAlive)
-			{
-				return -2;
-			}
-
 			synchronized (_sendLock.writer)
 			{
 				_writeQueue ~= data;
 			}
 
 			weakup(EventType.WRITE);  // First write direct, and when it encounter EAGAIN, it will open the EVENT notification.
-
-			return 0;
 		}
+		return 0;
 	}
 
 	override void close() @trusted nothrow @nogc

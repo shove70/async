@@ -11,11 +11,11 @@ import
 	std.socket;
 
 alias
-	OnConnected     = void function(TcpClient)                                    nothrow @trusted,
-	OnDisconnected  = void function(TcpClient)                                    nothrow @trusted,
-	OnReceive       = void function(TcpClient, const scope ubyte[])               nothrow @trusted,
-	OnSendCompleted = void function(TcpClient, const scope ubyte[], const size_t) nothrow @trusted,
-	OnSocketError   = void function(TcpClient, string)                            nothrow @trusted;
+	OnConnected     = void function(TcpClient)                              nothrow @trusted,
+	OnDisconnected  = void function(TcpClient)                              nothrow @trusted,
+	OnReceive       = void delegate(TcpClient, const scope ubyte[])         nothrow @trusted,
+	OnSendCompleted = void function(TcpClient, const scope ubyte[], size_t) nothrow @trusted,
+	OnSocketError   = void function(TcpClient, int)                         nothrow @trusted;
 
 enum EventType
 {
@@ -24,6 +24,14 @@ enum EventType
 
 abstract class Selector
 {
+	ThreadPool      workerPool;
+
+	OnReceive       onReceive;
+	OnSendCompleted onSendCompleted;
+	OnConnected     onConnected;
+	OnDisconnected  onDisconnected;
+	OnSocketError   onSocketError;
+
 	this(TcpListener listener, OnConnected onConnected = null, OnDisconnected onDisconnected = null,
 		OnReceive onReceive = null, OnSendCompleted onSendCompleted = null,
 		OnSocketError onSocketError = null, Codec codec = null, uint workerThreadNum = 0)
@@ -35,8 +43,8 @@ abstract class Selector
 		this.onReceive       = onReceive;
 		this.onSendCompleted = onSendCompleted;
 		this.onSocketError  = onSocketError;
-		_codec          = codec;
-		_clients  = new Map!(int, TcpClient);
+		_codec = codec;
+		_clients = new Map!(int, TcpClient);
 		_listener = listener;
 
 		version (Windows) { } else _acceptPool = new ThreadPool(1);
@@ -45,51 +53,31 @@ abstract class Selector
 
 	~this() { dispose(); }
 
-	bool register  (int fd, EventType et);
-	bool reregister(int fd, EventType et);
-	bool unregister(int fd);
+	bool register  (int fd, EventType et) nothrow;
+	bool reregister(int fd, EventType et) nothrow;
+	bool unregister(int fd) nothrow;
 
 	void initialize()
 	{
 		version (Windows)
 		{
+			import async.event.iocp;
 			foreach (i; 0 .. workerPool.size)
-				workerPool.run!handleEvent(this);
+				workerPool.run!(Iocp.handleEvent)(this);
 		}
 	}
 
-	void runLoop()
-	{
-		version (Windows)
-		{
-			beginAccept(this);
-		}
-		else
-		{
-			handleEvent();
-		}
-	}
+	alias runLoop = handleEvent;
 
 	void startLoop()
 	{
 		_runing = true;
 
-		version (Windows)
-		{
-			foreach (i; 0 .. workerPool.size)
-				workerPool.run!handleEvent(this);
-		}
+		initialize();
 
 		while (_runing)
 		{
-			version (Windows)
-			{
-				beginAccept(this);
-			}
-			else
-			{
-				handleEvent();
-			}
+			runLoop();
 		}
 	}
 
@@ -103,7 +91,7 @@ abstract class Selector
 		}
 
 		_clients.lock();
-		foreach (ref c; _clients)
+		foreach (ref c; _clients.data)
 		{
 			unregister(c.fd);
 
@@ -127,42 +115,36 @@ abstract class Selector
 		}
 	}
 
-	void removeClient(int fd, int err = 0)
+	void removeClient(int fd, int err = 0) nothrow
 	{
-		debug import std.stdio;
-		debug writeln("Close event: ", fd);
+		debug {
+			import std.stdio;
+			try writeln("Close event: ", fd); catch(Exception) {}
+		}
 		if (!unregister(fd))
 			return;
 
 		if (auto client = _clients[fd])
 		{
 			if (err > 0 && onSocketError)
-			{
-				onSocketError(client, formatSocketError(err));
-			}
-
+				onSocketError(client, err);
 			if (onDisconnected)
 			{
 				onDisconnected(client);
 			}
-
-			client.close();
+			try
+				if (client.isAlive)
+					client.close();
+			catch(Exception) {}
 		}
-
 		_clients.remove(fd);
-		//debug if (!err)
-			//stderr.writeln(err);
 	}
 
-	version (Windows)
-	{
-		void iocp_send(int fd, const scope void[] data);
-		void iocp_receive(int fd);
+	@property nothrow {
+		Codec codec() @nogc @safe { return _codec; }
+
+		auto clients() { return _clients; }
 	}
-
-	@property Codec codec() nothrow @nogc @safe { return _codec; }
-
-	@property auto clients() { return _clients; }
 
 protected:
 
@@ -174,7 +156,6 @@ protected:
 	static void beginAccept(Selector selector)
 	{
 		Socket socket = void;
-
 		try
 		{
 			socket = selector._listener.accept();
@@ -185,7 +166,6 @@ protected:
 		}
 
 		auto client = new TcpClient(selector, socket);
-
 		try
 			client.setKeepAlive(600, 10);
 		catch (Exception) { }
@@ -196,10 +176,13 @@ protected:
 		{
 			selector.onConnected(client);
 		}
-
 		selector.register(client.fd, EventType.READ);
 
-		version (Windows) selector.iocp_receive(client.fd);
+		version (Windows) {
+			import async.event.iocp;
+
+			Iocp.iocp_receive(selector, client.fd);
+		}
 	}
 
 	version (Windows)
@@ -240,12 +223,12 @@ protected:
 	version (Windows)
 	{
 		import core.sys.windows.basetsd : HANDLE;
+
 		HANDLE _eventHandle;
 
-		static void handleEvent(Selector selector)
+		void handleEvent()
 		{
-			import async.event.iocp : Iocp;
-			Iocp.handleEvent(selector);
+			beginAccept(this);
 		}
 	}
 	else
@@ -256,15 +239,6 @@ protected:
 	}
 
 private:
-	ThreadPool           _acceptPool;
-	Codec                _codec;
-
-public:
-	ThreadPool           workerPool;
-
-	OnReceive            onReceive;
-	OnSendCompleted      onSendCompleted;
-	OnConnected          onConnected;
-	OnDisconnected       onDisconnected;
-	OnSocketError        onSocketError;
+	ThreadPool _acceptPool;
+	Codec _codec;
 }
