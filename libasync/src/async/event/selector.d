@@ -91,7 +91,7 @@ abstract class Selector
 		}
 
 		_clients.lock();
-		foreach (ref c; _clients.data)
+		foreach (c; _clients.data)
 		{
 			unregister(c.fd);
 

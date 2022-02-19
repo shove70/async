@@ -13,7 +13,7 @@ struct ByteBuffer
         size_t length() const { return _size; }
     }
 
-    ref typeof(this) opBinary(string op : "~", T: const void[])(auto ref T rhs)
+    ref typeof(this) opBinary(string op : "~", T: const void[])(auto ref T rhs) @trusted
     {
         if (rhs is null)
         {
@@ -26,7 +26,7 @@ struct ByteBuffer
         return this;
     }
 
-    void opOpAssign(string op : "~", T: const void[])(auto ref T rhs)
+    void opOpAssign(string op : "~", T: const void[])(auto ref T rhs) @trusted
     {
         if (rhs is null)
         {

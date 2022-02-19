@@ -7,10 +7,6 @@ import
 	async.net.tcplistener,
 	std.socket;
 
-version (Posix)
-{
-	import core.sys.posix.signal;
-}
 version (linux)
 {
 	import async.event.epoll;
@@ -33,6 +29,8 @@ class EventLoop : LoopSelector
 	{
 		version (Posix)
 		{
+			import core.sys.posix.signal;
+
 			// For main thread.
 			signal(SIGPIPE, SIG_IGN);
 

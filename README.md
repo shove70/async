@@ -28,27 +28,25 @@ This is a simple wrapper of network library, D language implementation. Its enca
 
 // Echo server:
 
+import async;
 import std.stdio;
-import std.conv;
 import std.socket;
 import std.exception;
 
-import async;
-
 void main()
 {
-    TcpListener listener = new TcpListener();
-    listener.bind(new InternetAddress("0.0.0.0", 12290));
+    auto listener = new TcpListener();
+    listener.bind(new InternetAddress(12290));
     listener.listen(10);
 
-    EventLoop loop = new EventLoop(listener, null, null, &onReceive, null, null);
+    auto loop = new EventLoop(listener, null, null, &onReceive, null, null);
     loop.run();
 }
 
-void onReceive(TcpClient client, in ubyte[] data) nothrow @trusted
+void onReceive(TcpClient client, const scope ubyte[] data) nothrow @trusted
 {
     collectException({
-        writefln("Receive from %s: %d", client.remoteAddress().toString(), data.length);
+        writefln("Receive from %s: %d", client.remoteAddress, data.length);
         client.send(cast(ubyte[])data);
     }());
 }
@@ -57,15 +55,14 @@ void onReceive(TcpClient client, in ubyte[] data) nothrow @trusted
 // Echo client:
 
 import std.stdio;
-import std.conv;
 import std.socket;
 
 void main(string[] argv)
 {
-    TcpSocket socket = new TcpSocket();
+    auto socket = new TcpSocket();
     socket.connect(new InternetAddress("127.0.0.1", 12290));
 
-    string data = "hello, server.";
+    auto data = "hello, server.";
     writeln("Client say: ", data);
     socket.send(data);
 

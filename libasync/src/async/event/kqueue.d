@@ -71,7 +71,7 @@ class Kqueue : Selector
 		reg(_listener.fd, EventType.ACCEPT);
 	}
 
-	private bool reg(int fd, EventType et)
+	private auto reg(int fd, EventType et)
 	{
 		kevent_t[2] ev = void;
 		short filter = void;

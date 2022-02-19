@@ -1,11 +1,10 @@
 module async.container.map;
 
 import core.sync.mutex;
-import std.exception;
 
 class Map(TKey, TValue)
 {
-nothrow @safe:
+nothrow:
     this() { mutex = new Mutex; }
 
     ref auto opIndex(TKey key)
@@ -36,19 +35,7 @@ nothrow @safe:
         unlock();
     }
 
-    @property pure {
-        bool empty() const pure @nogc { return data.length == 0; }
-
-        ref auto front() inout
-        {
-            return data.length ? data[data.keys[0]] : null;
-        }
-
-        ref auto back() inout
-        {
-            return data.length ? data[data.keys[$ - 1]] : null;
-        }
-    }
+    @property bool empty() const pure @nogc { return data.length == 0; }
 
     bool remove(TKey key)
     {
@@ -64,6 +51,7 @@ nothrow @safe:
         unlock();
     }
 
+@safe:
     final void lock() { mutex.lock_nothrow(); }
 
     final void unlock() { mutex.unlock_nothrow(); }

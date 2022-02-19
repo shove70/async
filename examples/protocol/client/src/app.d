@@ -19,7 +19,7 @@ private void go(ubyte[] data)
     import
         core.stdc.errno,
         core.atomic,
-        std.outbuffer,
+        std.bitmanip,
         std.stdio,
         std.socket;
 
@@ -28,10 +28,9 @@ private void go(ubyte[] data)
         auto socket = new TcpSocket;
         socket.connect(new InternetAddress("127.0.0.1", 12290));
 
-        auto ob = new OutBuffer;
-        ob.write(cast(int)data.length);
-        ob.write(data);
-        auto buffer = ob.toBytes();
+        ubyte[] buffer = new ubyte[4];
+        buffer.write!int(cast(int)data.length, 0);
+        buffer ~= data;
 
         long len;
         for (size_t off; off < buffer.length; off += len)

@@ -273,12 +273,17 @@ public:
 		}
 		else
 		{
-			synchronized (_sendLock.writer)
-			{
-				_writeQueue ~= data;
-			}
+			import std.experimental.logger;
+			try {
+				synchronized (_sendLock.writer)
+				{
+					_writeQueue ~= data;
+				}
 
-			weakup(EventType.WRITE);  // First write direct, and when it encounter EAGAIN, it will open the EVENT notification.
+				weakup(EventType.WRITE); // First write direct, and when it encounter EAGAIN, it will open the EVENT notification.
+			} catch(Exception e) {
+				try error(e); catch(Exception) {}
+			}
 		}
 		return 0;
 	}
@@ -305,8 +310,8 @@ public:
 	}
 
 private:
-	Selector         _selector;
-	shared bool      _closing;
+	Selector _selector;
+	shared bool _closing;
 
 	version (Windows) { } else
 	{
@@ -320,8 +325,8 @@ private:
 		size_t          _lastWriteOffset;
 		ReadWriteMutex  _sendLock;
 
-		EventType        _currentEventType;
+		EventType       _currentEventType;
 	}
 
-	ByteBuffer       _receiveBuffer;
+	ByteBuffer _receiveBuffer;
 }

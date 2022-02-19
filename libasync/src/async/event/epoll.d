@@ -24,13 +24,13 @@ class Epoll : Selector
 		OnReceive onReceive = null, OnSendCompleted onSendCompleted = null,
 		OnSocketError onSocketError = null, Codec codec = null, uint workerThreadNum = 0)
 	{
-		super(listener, onConnected, onDisConnected, onReceive, onSendCompleted, onSocketError, codec, workerThreadNum);
+		super(listener, onConnected, onDisconnected, onReceive, onSendCompleted, onSocketError, codec, workerThreadNum);
 
 		_eventHandle = epoll_create1(0);
 		register(_listener.fd, EventType.ACCEPT);
 	}
 
-	private int reg(int fd, EventType et, int op)
+	private auto reg(int fd, EventType et, int op)
 	{
 		epoll_event ev;
 		ev.events  = EPOLLHUP | EPOLLERR;
