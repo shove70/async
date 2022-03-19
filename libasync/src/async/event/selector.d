@@ -71,17 +71,17 @@ abstract class Selector
 
 	void startLoop()
 	{
-		_runing = true;
+		_running = true;
 
 		initialize();
 
-		while (_runing)
+		while (_running)
 		{
 			runLoop();
 		}
 	}
 
-	void stop() { _runing = false; }
+	void stop() { _running = false; }
 
 	void dispose()
 	{
@@ -93,9 +93,7 @@ abstract class Selector
 		_clients.lock();
 		foreach (c; _clients.data)
 		{
-			unregister(c.fd);
-
-			if (c.isAlive)
+			if (unregister(c.fd) && c.isAlive)
 			{
 				c.close();
 			}
@@ -105,8 +103,8 @@ abstract class Selector
 		_clients.clear();
 		_clients = null;
 
-		unregister(_listener.fd);
-		_listener.close();
+		if (unregister(_listener.fd))
+			_listener.close();
 
 		version (Posix)
 		{
@@ -218,7 +216,7 @@ protected:
 
 	Map!(int, TcpClient) _clients;
 	TcpListener          _listener;
-	bool                 _runing;
+	bool                 _running;
 
 	version (Windows)
 	{

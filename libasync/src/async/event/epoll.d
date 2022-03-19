@@ -27,7 +27,7 @@ class Epoll : Selector
 		super(listener, onConnected, onDisconnected, onReceive, onSendCompleted, onSocketError, codec, workerThreadNum);
 
 		_eventHandle = epoll_create1(0);
-		register(_listener.fd, EventType.ACCEPT);
+		reg(_listener.fd, EventType.ACCEPT, EPOLL_CTL_ADD);
 	}
 
 	private auto reg(int fd, EventType et, int op)
@@ -58,7 +58,7 @@ class Epoll : Selector
 			return false;
 		}
 
-		if (reg(fd, et, EPOLL_CTL_ADD) != 0)
+		if (reg(fd, et, EPOLL_CTL_ADD))
 		{
 			return errno == EEXIST;
 		}

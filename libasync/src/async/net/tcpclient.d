@@ -77,7 +77,7 @@ private:
 					data ~= buffer[0 .. len];
 					continue;
 				}
-				else if (len == 0)
+				if (len == 0)
 				{
 					client.readCallback(-1);
 					return;

@@ -27,7 +27,7 @@ class Iocp : Selector
 
 	override bool register(int fd, EventType et)
 	{
-		return fd >= 0 && CreateIoCompletionPort(cast(HANDLE)fd, _eventHandle, fd, 0) != null;
+		return fd >= 0 && CreateIoCompletionPort(cast(HANDLE) fd, _eventHandle, fd, 0) != null;
 	}
 
 	override bool reregister(int fd, EventType et)
@@ -48,7 +48,7 @@ class Iocp : Selector
 		uint dwSendNumBytes;
 		uint dwFlags;
 
-		while (selector._runing)
+		while (selector._running)
 		{
 			ULONG_PTR key = void;
 			DWORD bytes;
@@ -57,13 +57,11 @@ class Iocp : Selector
 
 			if (ret == 0)
 			{
-				immutable err = GetLastError();
-				if (err != WAIT_TIMEOUT)
-					if (context)
-					{
-						selector.removeClient(context.fd, err);
-					}
-
+				const err = GetLastError();
+				if (err != WAIT_TIMEOUT && context)
+				{
+					selector.removeClient(context.fd, err);
+				}
 				continue;
 			}
 
@@ -96,7 +94,7 @@ class Iocp : Selector
 
 					if (ret == SOCKET_ERROR)
 					{
-						immutable err = WSAGetLastError();
+						const err = WSAGetLastError();
 
 						if (err != ERROR_IO_PENDING)
 						{
@@ -125,11 +123,11 @@ class Iocp : Selector
 		context.fd          = fd;
 		uint dwRecvNumBytes;
 		uint dwFlags;
-		int ret = WSARecv(cast(HANDLE) fd, &context.wsabuf, 1, &dwRecvNumBytes, &dwFlags, &context.overlapped, null);
+		int err = WSARecv(cast(HANDLE) fd, &context.wsabuf, 1, &dwRecvNumBytes, &dwFlags, &context.overlapped, null);
 
-		if (ret == SOCKET_ERROR)
+		if (err == SOCKET_ERROR)
 		{
-			immutable err = WSAGetLastError();
+			err = WSAGetLastError();
 
 			if (err != ERROR_IO_PENDING)
 			{
@@ -145,7 +143,7 @@ class Iocp : Selector
 			size_t len = data.length - pos;
 			len = len > BUFFERSIZE ? BUFFERSIZE : len;
 
-			IocpContext* context = new IocpContext();
+			auto context = new IocpContext;
 			context.operation  = IocpOperation.write;
 			context.buffer[0..len] = cast(char[]) data[pos..pos + len];
 			context.nTotalBytes = cast(int) len;
@@ -155,11 +153,11 @@ class Iocp : Selector
 			context.fd          = fd;
 			uint dwSendNumBytes = void;
 			enum dwFlags = 0;
-			int ret = WSASend(cast(HANDLE) fd, &context.wsabuf, 1, &dwSendNumBytes, dwFlags, &context.overlapped, null);
+			int err = WSASend(cast(HANDLE) fd, &context.wsabuf, 1, &dwSendNumBytes, dwFlags, &context.overlapped, null);
 
-			if (ret == SOCKET_ERROR)
+			if (err == SOCKET_ERROR)
 			{
-				immutable err = WSAGetLastError();
+				err = WSAGetLastError();
 
 				if (err != ERROR_IO_PENDING)
 				{

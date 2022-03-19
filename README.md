@@ -66,8 +66,8 @@ void main(string[] argv)
     writeln("Client say: ", data);
     socket.send(data);
 
-    ubyte[] buffer = new ubyte[1024];
-    size_t len = socket.receive(buffer);
+    ubyte[1024] buffer = void;
+    size_t len = socket.receive(buffer[]);
     writeln("Server reply: ", cast(string)buffer[0..len]);
 
     socket.shutdown(SocketShutdown.BOTH);
