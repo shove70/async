@@ -6,18 +6,14 @@ import std.exception : enforce;
 
 struct ByteBuffer
 {
-    @property bool empty()
-    {
-        return (_size == 0);
+@safe:
+    @property pure nothrow @nogc {
+        bool empty() const { return _size == 0; }
+
+        size_t length() const { return _size; }
     }
 
-    @property size_t length()
-    {
-        return _size;
-    }
-
-    ref typeof(this) opBinary(string op, Stuff)(auto ref Stuff rhs)
-    if ((is(Stuff: const ubyte[])) && op == "~")
+    ref typeof(this) opBinary(string op : "~", T: const void[])(auto ref T rhs) @trusted
     {
         if (rhs is null)
         {
@@ -30,8 +26,7 @@ struct ByteBuffer
         return this;
     }
 
-    void opOpAssign(string op, Stuff)(auto ref Stuff rhs)
-    if ((is(Stuff: const ubyte[])) && op == "~")
+    void opOpAssign(string op : "~", T: const void[])(auto ref T rhs) @trusted
     {
         if (rhs is null)
         {
@@ -42,9 +37,9 @@ struct ByteBuffer
         _size += rhs.length;
     }
 
-    ubyte[] opSlice(const size_t low, const size_t high) @trusted
+    ubyte[] opSlice(size_t low, size_t high) @trusted
     {
-        enforce((low <= high) && (high <= _size), "ByteBuffer.opSlice: Invalid arguments low, high");
+        enforce(low <= high && high <= _size, "ByteBuffer.opSlice: Invalid arguments low, high");
 
         ubyte[] ret;
 
@@ -53,7 +48,7 @@ struct ByteBuffer
             return ret;
         }
 
-        size_t count = 0, lack = high - low;
+        size_t count, lack = high - low;
         foreach (a; _queue)
         {
             count += a.length;
@@ -76,14 +71,11 @@ struct ByteBuffer
         return ret;
     }
 
-    size_t opDollar() nothrow const
-    {
-        return _size;
-    }
+    alias opDollar = length;
 
-    ref ubyte opIndex(const size_t index) @trusted
+    ref ubyte opIndex(size_t index) @trusted
     {
-        enforce((index < _size), "ByteBuffer.opIndex: Invalid arguments index");
+        enforce(index < _size, "ByteBuffer.opIndex: Invalid arguments index");
 
         size_t size, start;
         foreach (a; _queue)
@@ -100,25 +92,19 @@ struct ByteBuffer
         assert(0);
     }
 
-    @property ref inout(ubyte[]) front() inout
-    {
-        assert(!_queue.empty, "ByteBuffer.front: Queue is empty");
-
+    @property ref inout(ubyte[]) front() inout nothrow @nogc
+    in(!_queue.empty, "ByteBuffer.front: Queue is empty") {
         return _queue.front;
     }
 
-    void popFront()
+    void popFront() in(!_queue.empty, "ByteBuffer.popFront: Queue is empty")
     {
-        assert(!_queue.empty, "ByteBuffer.popFront: Queue is empty");
-
         _size -= _queue.front.length;
         _queue.removeFront();
     }
 
-    void popFront(const size_t size)
-    {
-        assert(size >= 0 && size <= _size, "ByteBuffer.popFront: Invalid arguments size");
-
+    void popFront(size_t size)
+    in(size >= 0 && size <= _size, "ByteBuffer.popFront: Invalid arguments size") {
         if (size == 0)
         {
             return;
@@ -132,9 +118,9 @@ struct ByteBuffer
             return;
         }
 
-        size_t removed = 0, lack = size;
+        size_t removed, lack = size;
 
-        size_t line = 0, count = 0, currline_len = 0;
+        size_t line, count, currline_len;
         foreach (a; _queue)
         {
             line++;
@@ -162,7 +148,7 @@ struct ByteBuffer
         _size -= size;
     }
 
-    void clear()
+    void clear() nothrow
     {
         _queue.clear();
         _size = 0;
@@ -170,22 +156,18 @@ struct ByteBuffer
 
     string toString()
     {
-        return this[0 .. $].to!string();
+        return this[0 .. $].to!string;
     }
 
-    auto opCast(T)()
+    auto opCast(T)() if (isSomeString!T || is(T: const ubyte[]))
     {
         static if (isSomeString!T)
         {
             return toString();
         }
-        else static if (is(T: const ubyte[]))
-        {
-            return this[0 .. $];
-        }
         else
         {
-            static assert(0, "ByteBuffer.opCast: Not support type.");
+            return this[0 .. $];
         }
     }
 

@@ -2,161 +2,61 @@ module async.container.map;
 
 import core.sync.mutex;
 
-import std.exception;
-import std.typecons;
-import std.traits : isArray;
-
 class Map(TKey, TValue)
 {
-    this()
-    {
-        _lock = new Mutex;
-    }
-
-    @property bool empty() const
-    {
-        return (_data.length == 0);
-    }
-
-    @property size_t length() const
-    {
-        return _data.length;
-    }
-
-    @property size_t opDollar() const
-    {
-        return _data.length;
-    }
+nothrow:
+    this() { mutex = new Mutex; }
 
     ref auto opIndex(TKey key)
     {
-        synchronized (_lock)
-        {
-            if (key !in _data)
-            {
-                static if (isArray!TValue)
-                {
-                    _data[key] = [];
-                }
-                else
-                {
-                    return null;
-                }
-            }
+        import std.traits : isArray;
 
-            return _data[key];
+        lock();
+        scope(exit) unlock();
+        if (key !in data)
+        {
+            static if (isArray!TValue)
+            {
+                data[key] = [];
+            }
+            else
+            {
+                return null;
+            }
         }
+
+        return data[key];
     }
 
     void opIndexAssign(TValue value, TKey key)
     {
-        synchronized (_lock)
-        {
-            _data[key] = value;
-        }
+        lock();
+        data[key] = value;
+        unlock();
     }
 
-    @property ref auto front() inout
+    @property bool empty() const pure @nogc { return data.length == 0; }
+
+    bool remove(TKey key)
     {
-        if (_data.length == 0)
-        {
-            return null;
-        }
-
-        return _data[_data.keys[0]];
+        lock();
+        scope(exit) unlock();
+        return data.remove(key);
     }
 
-    @property ref auto back() inout
+    void clear() @trusted
     {
-        if (_data.length == 0)
-        {
-            return null;
-        }
-
-        return _data[_data.keys[$ - 1]];
+        lock();
+        data.clear();
+        unlock();
     }
 
-    int opApply(scope int delegate(ref TValue) dg)
-    {
-        int result = 0;
+@safe:
+    final void lock() { mutex.lock_nothrow(); }
 
-        foreach (d; _data)
-        {
-            result = dg(d);
+    final void unlock() { mutex.unlock_nothrow(); }
 
-            if (result)
-            {
-                break;
-            }
-        }
-
-        return result;
-    }
-
-    int opApply(scope int delegate(TKey, ref TValue) dg)
-    {
-        int result = 0;
-
-        foreach (k, d; _data)
-        {
-            result = dg(k, d);
-
-            if (result)
-            {
-                break;
-            }
-        }
-
-        return result;
-    }
-
-    @property TKey[] keys()
-    {
-        return _data.keys;
-    }
-
-    @property TValue[] values()
-    {
-        return _data.values;
-    }
-
-    bool exists(TKey key)
-    {
-        if (key in _data)
-        {
-            return true;
-        }
-        return false;
-    }
-
-    void remove(TKey key)
-    {
-        synchronized (_lock)
-        {
-            _data.remove(key);
-        }
-    }
-
-    void clear()
-    {
-        synchronized (_lock)
-        {
-            _data.clear();
-        }
-    }
-
-    void lock()
-    {
-        _lock.lock();
-    }
-
-    void unlock()
-    {
-        _lock.unlock();
-    }
-
-private:
-
-    TValue[TKey] _data;
-    Mutex        _lock;
+    TValue[TKey] data;
+    alias data this;
+    protected Mutex mutex;
 }

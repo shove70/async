@@ -1,85 +1,63 @@
 module async.eventloop;
 
-import std.stdio;
-import std.socket;
-import std.parallelism : totalCPUs;
-
-import async.event.selector;
-import async.net.tcplistener;
-import async.codec;
-
-version (Posix)
-{
-    import core.sys.posix.signal;
-}
+import
+	async.codec,
+	async.event.selector,
+	async.net.tcpclient,
+	async.net.tcplistener,
+	std.socket;
 
 version (linux)
 {
-    import async.event.epoll;
-}
-else version (OSX)
-{
-    import async.event.kqueue;
-}
-else version (iOS)
-{
-    import async.event.kqueue;
-}
-else version (TVOS)
-{
-    import async.event.kqueue;
-}
-else version (WatchOS)
-{
-    import async.event.kqueue;
-}
-else version (FreeBSD)
-{
-    import async.event.kqueue;
-}
-else version (OpenBSD)
-{
-    import async.event.kqueue;
-}
-else version (DragonFlyBSD)
-{
-    import async.event.kqueue;
-}
-else version (Windows)
-{
-    import async.event.iocp;
+	import async.event.epoll;
 }
 else
 {
-    static assert(false, "Unsupported platform.");
+	import async.event.kqueue;
+	version(KQUEUE) { } else version (Windows)
+	{
+		import async.event.iocp;
+	}
+	else static assert(0, "Unsupported platform.");
 }
 
 class EventLoop : LoopSelector
 {
-    this(TcpListener listener,
-        OnConnected onConnected, OnDisConnected onDisConnected, OnReceive onReceive, OnSendCompleted onSendCompleted,
-        OnSocketError onSocketError, Codec codec = null, const int workerThreadNum = totalCPUs * 2 + 2)
-    {
-        version (Posix)
-        {
-            // For main thread.
-            signal(SIGPIPE, SIG_IGN);
+	this(TcpListener listener, OnConnected onConnected = null, OnDisconnected onDisconnected = null,
+		OnReceive onReceive = null, OnSendCompleted onSendCompleted = null,
+		OnSocketError onSocketError = null, Codec codec = null, uint workerThreadNum = 0)
+	{
+		version (Posix)
+		{
+			import core.sys.posix.signal;
 
-            // For background threads.
-            sigset_t mask1;
-            sigemptyset(&mask1);
-            sigaddset(&mask1, SIGPIPE);
-            sigaddset(&mask1, SIGILL);
-            sigprocmask(SIG_BLOCK, &mask1, null);
-        }
+			// For main thread.
+			signal(SIGPIPE, SIG_IGN);
 
-        super(listener, onConnected, onDisConnected, onReceive, onSendCompleted, onSocketError, codec, workerThreadNum);
-    }
+			// For background threads.
+			sigset_t mask1;
+			sigemptyset(&mask1);
+			sigaddset(&mask1, SIGPIPE);
+			sigaddset(&mask1, SIGILL);
+			sigprocmask(SIG_BLOCK, &mask1, null);
+		}
 
-    void run()
-    {
-        writefln("Start listening to %s...", _listener.localAddress().toString());
+		super(listener, onConnected, onDisconnected, onReceive, onSendCompleted, onSocketError, codec, workerThreadNum);
+	}
 
-        startLoop();
-    }
+	this(TcpListener listener, OnConnected onConnected, OnDisconnected onDisconnected,
+		void function(TcpClient, const scope ubyte[]) nothrow @trusted onReceive, OnSendCompleted onSendCompleted = null,
+		OnSocketError onSocketError = null, Codec codec = null, uint workerThreadNum = 0)
+	{
+		import std.functional;
+		this(listener, onConnected, onDisconnected,
+			onReceive.toDelegate, onSendCompleted, onSocketError, codec, workerThreadNum);
+	}
+
+	void run()
+	{
+		import std.experimental.logger;
+		debug infof("Start listening to %s...", _listener.localAddress);
+		startLoop();
+	}
 }
